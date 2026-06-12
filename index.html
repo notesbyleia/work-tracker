@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reply Radar</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Reply Radar</p>
+        <h1>Work tracker for everything waiting on someone else.</h1>
+      </div>
+      <div class="header-actions">
+        <button id="seed-data" class="secondary">Load sample data</button>
+        <button id="clear-data" class="ghost">Reset</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="metrics" aria-label="today summary">
+        <article>
+          <span id="metric-chase">0</span>
+          <p>chase today</p>
+        </article>
+        <article>
+          <span id="metric-risk">0</span>
+          <p>at risk</p>
+        </article>
+        <article>
+          <span id="metric-back">0</span>
+          <p>back with me</p>
+        </article>
+        <article>
+          <span id="metric-hours">0h</span>
+          <p>planned effort</p>
+        </article>
+      </section>
+
+      <section class="layout">
+        <aside class="panel">
+          <div class="panel-heading">
+            <h2>Add workstream</h2>
+          </div>
+          <form id="workstream-form" class="stack">
+            <label>
+              Name
+              <input name="name" required placeholder="e.g. Q3 board deck" />
+            </label>
+            <label>
+              Final deadline
+              <input name="deadline" required type="date" />
+            </label>
+            <label>
+              Your effort after inputs
+              <select name="effort">
+                <option value="0.5">30 min</option>
+                <option value="1">1 hour</option>
+                <option value="2">2 hours</option>
+                <option value="4">Half day</option>
+                <option value="8">Full day</option>
+              </select>
+            </label>
+            <button type="submit">Create workstream</button>
+          </form>
+
+          <div class="divider"></div>
+
+          <div class="panel-heading">
+            <h2>Log input request</h2>
+          </div>
+          <form id="request-form" class="stack">
+            <label>
+              Workstream
+              <select name="workstreamId" id="request-workstream" required></select>
+            </label>
+            <label>
+              Person
+              <input name="person" required placeholder="e.g. Jaryl" />
+            </label>
+            <label>
+              Input needed
+              <textarea name="inputNeeded" required placeholder="What are you waiting for?"></textarea>
+            </label>
+            <div class="two-col">
+              <label>
+                Due from them
+                <input name="dueDate" required type="date" />
+              </label>
+              <label>
+                Expected delay
+                <select name="expectedDelay">
+                  <option value="0">Usually on time</option>
+                  <option value="1">+1 day</option>
+                  <option value="2">+2 days</option>
+                  <option value="5">+1 week-ish</option>
+                  <option value="30">Chronic late</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              Status
+              <select name="status">
+                <option value="waiting">Waiting</option>
+                <option value="chased">Chased</option>
+                <option value="received">Received</option>
+                <option value="blocked">Blocked</option>
+              </select>
+            </label>
+            <button type="submit">Add request</button>
+          </form>
+        </aside>
+
+        <section class="workspace">
+          <nav class="tabs" aria-label="views">
+            <button class="tab active" data-view="command">Today</button>
+            <button class="tab" data-view="workstreams">Workstreams</button>
+            <button class="tab" data-view="requests">All requests</button>
+            <button class="tab" data-view="people">People</button>
+          </nav>
+
+          <section id="command-view" class="view active">
+            <div class="view-grid">
+              <article class="lane">
+                <h2>Chase today</h2>
+                <div id="chase-list" class="card-list"></div>
+              </article>
+              <article class="lane">
+                <h2>Likely to come back</h2>
+                <div id="expected-list" class="card-list"></div>
+              </article>
+              <article class="lane">
+                <h2>Back with me</h2>
+                <div id="back-list" class="card-list"></div>
+              </article>
+            </div>
+          </section>
+
+          <section id="workstreams-view" class="view">
+            <div id="workstream-board" class="board"></div>
+          </section>
+
+          <section id="requests-view" class="view">
+            <div id="request-list" class="table-list"></div>
+          </section>
+
+          <section id="people-view" class="view">
+            <div id="people-list" class="table-list"></div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <template id="empty-state">
+      <div class="empty">
+        <strong>Nothing here yet.</strong>
+        <span>Add a workstream and log the people you are waiting on.</span>
+      </div>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
