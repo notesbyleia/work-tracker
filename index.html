@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Reply Radar</title>
+    <title>work tracker</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="app-header">
       <div>
-        <p class="eyebrow">Reply Radar</p>
-        <h1>Work tracker for everything waiting on someone else.</h1>
+        <p class="eyebrow">Work Tracker</p>
+        <h1>Plan work by portfolio, workstream, and task.</h1>
       </div>
       <div class="header-actions">
         <button id="seed-data" class="secondary">Load sample data</button>
@@ -41,19 +41,36 @@
       <section class="layout">
         <aside class="panel">
           <div class="panel-heading">
+            <h2>Add portfolio</h2>
+          </div>
+          <form id="portfolio-form" class="stack">
+            <label>
+              Portfolio
+              <input name="name" required placeholder="e.g. Transport" />
+            </label>
+            <button type="submit">Create portfolio</button>
+          </form>
+
+          <div class="divider"></div>
+
+          <div class="panel-heading">
             <h2>Add workstream</h2>
           </div>
           <form id="workstream-form" class="stack">
             <label>
-              Name
-              <input name="name" required placeholder="e.g. Q3 board deck" />
+              Portfolio
+              <select name="portfolioId" id="workstream-portfolio" required></select>
             </label>
             <label>
-              Final deadline
+              Workstream
+              <input name="name" required placeholder="e.g. HV lodgement scheme" />
+            </label>
+            <label>
+              Final workstream deadline
               <input name="deadline" required type="date" />
             </label>
             <label>
-              Your effort after inputs
+              Your effort after all task inputs
               <select name="effort">
                 <option value="0.5">30 min</option>
                 <option value="1">1 hour</option>
@@ -68,24 +85,24 @@
           <div class="divider"></div>
 
           <div class="panel-heading">
-            <h2>Log input request</h2>
+            <h2>Add task</h2>
           </div>
-          <form id="request-form" class="stack">
+          <form id="task-form" class="stack">
             <label>
               Workstream
-              <select name="workstreamId" id="request-workstream" required></select>
+              <select name="workstreamId" id="task-workstream" required></select>
             </label>
             <label>
-              Person
-              <input name="person" required placeholder="e.g. Jaryl" />
+              Task
+              <textarea name="title" required placeholder="e.g. Provide inputs to MOT's pre-cab paper"></textarea>
             </label>
             <label>
-              Input needed
-              <textarea name="inputNeeded" required placeholder="What are you waiting for?"></textarea>
+              People / agencies inputs needed
+              <input name="inputs" required placeholder="Comma-separated, e.g. MOT, LTA, Finance" />
             </label>
             <div class="two-col">
               <label>
-                Due from them
+                Task deadline
                 <input name="dueDate" required type="date" />
               </label>
               <label>
@@ -105,44 +122,55 @@
                 <option value="waiting">Waiting</option>
                 <option value="chased">Chased</option>
                 <option value="received">Received</option>
-                <option value="blocked">Blocked</option>
+                <option value="completed">Completed</option>
               </select>
             </label>
-            <button type="submit">Add request</button>
+            <button type="submit">Add task</button>
           </form>
         </aside>
 
         <section class="workspace">
           <nav class="tabs" aria-label="views">
             <button class="tab active" data-view="command">Today</button>
-            <button class="tab" data-view="workstreams">Workstreams</button>
-            <button class="tab" data-view="requests">All requests</button>
+            <button class="tab" data-view="portfolios">Portfolios</button>
+            <button class="tab" data-view="tasks">All tasks</button>
             <button class="tab" data-view="people">People</button>
           </nav>
 
           <section id="command-view" class="view active">
+            <article class="priority-panel">
+              <div class="panel-heading">
+                <h2>Priority queue</h2>
+              </div>
+              <div id="priority-list" class="priority-list"></div>
+            </article>
+
             <div class="view-grid">
-              <article class="lane">
-                <h2>Chase today</h2>
+              <article class="lane" data-lane="chased">
+                <h2>To chase</h2>
                 <div id="chase-list" class="card-list"></div>
               </article>
-              <article class="lane">
-                <h2>Likely to come back</h2>
-                <div id="expected-list" class="card-list"></div>
+              <article class="lane" data-lane="waiting">
+                <h2>Waiting</h2>
+                <div id="waiting-list" class="card-list"></div>
               </article>
-              <article class="lane">
+              <article class="lane" data-lane="received">
                 <h2>Back with me</h2>
                 <div id="back-list" class="card-list"></div>
+              </article>
+              <article class="lane" data-lane="completed">
+                <h2>Completed</h2>
+                <div id="completed-list" class="card-list"></div>
               </article>
             </div>
           </section>
 
-          <section id="workstreams-view" class="view">
-            <div id="workstream-board" class="board"></div>
+          <section id="portfolios-view" class="view">
+            <div id="portfolio-board" class="board"></div>
           </section>
 
-          <section id="requests-view" class="view">
-            <div id="request-list" class="table-list"></div>
+          <section id="tasks-view" class="view">
+            <div id="task-list" class="table-list"></div>
           </section>
 
           <section id="people-view" class="view">
@@ -155,7 +183,7 @@
     <template id="empty-state">
       <div class="empty">
         <strong>Nothing here yet.</strong>
-        <span>Add a workstream and log the people you are waiting on.</span>
+        <span>Create a portfolio, a workstream, then add tasks under it.</span>
       </div>
     </template>
 
