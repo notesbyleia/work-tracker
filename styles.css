@@ -225,18 +225,72 @@ textarea {
   display: block;
 }
 
+.priority-panel {
+  border-bottom: 1px solid var(--line);
+  margin: -1rem -1rem 1rem;
+  padding: 1rem;
+}
+
+.priority-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.priority-item {
+  align-items: start;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto 1fr;
+  padding: 0.75rem;
+}
+
+.priority-item.risk-high {
+  border-color: #f4b4ae;
+}
+
+.priority-item.risk-medium {
+  border-color: #f2d19c;
+}
+
+.rank {
+  align-items: center;
+  background: var(--ink);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 0.8rem;
+  font-weight: 850;
+  height: 1.8rem;
+  justify-content: center;
+  width: 1.8rem;
+}
+
 .view-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .lane {
+  border: 1px solid transparent;
+  border-radius: 8px;
   min-width: 0;
+  padding: 0.35rem;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .lane h2 {
   margin-bottom: 0.75rem;
+}
+
+.lane.drag-over {
+  background: #eef7f2;
+  border-color: #b9d8cb;
 }
 
 .card-list,
@@ -249,11 +303,26 @@ textarea {
 .request-card,
 .workstream-card,
 .person-card {
+  background: #fff;
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
   gap: 0.65rem;
   padding: 0.85rem;
+}
+
+.request-card[draggable="true"] {
+  cursor: grab;
+}
+
+.request-card.dragging {
+  cursor: grabbing;
+  opacity: 0.55;
+}
+
+.request-card.editing,
+.workstream-card.editing {
+  background: #fbfcfa;
 }
 
 .request-card.risk-high,
@@ -330,6 +399,12 @@ textarea {
 
 .actions button:hover {
   background: #dde6d9;
+}
+
+.edit-task-form .actions button[type="submit"],
+.edit-workstream-form .actions button[type="submit"] {
+  background: var(--accent);
+  color: #fff;
 }
 
 .empty {
