@@ -18,45 +18,6 @@ if (!cfg.url || cfg.url.includes("YOUR-PROJECT")) {
 
 const client = createClient(cfg.url, cfg.anonKey);
 
-// ─── On-screen debug log (mobile-friendly) ───────────────────────────────────
-
-const DEBUG = true;
-
-function dbg(msg) {
-  if (!DEBUG) return;
-  let panel = document.querySelector("#debug-log");
-  if (!panel) {
-    panel = document.createElement("div");
-    panel.id = "debug-log";
-    panel.style.cssText =
-      "position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow:auto;z-index:99999;" +
-      "background:#111;color:#0f0;padding:8px 10px 12px;font:11px/1.4 monospace;" +
-      "border-top:2px solid #0f0;";
-    const header = document.createElement("div");
-    header.style.cssText = "display:flex;justify-content:space-between;color:#fff;margin-bottom:4px;";
-    header.innerHTML = "<strong>debug log</strong>";
-    const close = document.createElement("button");
-    close.textContent = "hide";
-    close.style.cssText = "background:#333;color:#fff;border:none;padding:2px 8px;border-radius:4px;";
-    close.onclick = () => panel.remove();
-    header.append(close);
-    panel.append(header);
-    const body = document.createElement("div");
-    body.id = "debug-log-body";
-    panel.append(body);
-    document.body.append(panel);
-  }
-  const line = document.createElement("div");
-  const t = new Date().toLocaleTimeString();
-  line.textContent = `[${t}] ${msg}`;
-  document.querySelector("#debug-log-body")?.append(line);
-}
-
-// Make dbg available globally so app.js can use it too.
-window.__dbg = dbg;
-
-dbg("auth.js loaded; supabase client created");
-
 
 // ─── Auth gate UI ──────────────────────────────────────────────────────────
 // Shows the login form as an OVERLAY without destroying the app's HTML,
@@ -132,7 +93,6 @@ function setMessage(text) {
 let currentUserId = null;
 
 async function cloudLoad() {
-  dbg(`cloudLoad: querying for user ${currentUserId?.slice(0, 8)}…`);
   try {
     const query = client
       .from("tracker_state")
@@ -147,24 +107,18 @@ async function cloudLoad() {
     const { data, error } = await Promise.race([query, timeout]);
 
     if (error) {
-      dbg(`cloudLoad ERROR: ${error.message} (code ${error.code || "?"})`);
       console.error("cloudLoad", error);
       return null;
     }
-    if (!data) { dbg("cloudLoad: no row yet (empty)"); return null; }
-    const d = data.data || {};
-    dbg(`cloudLoad OK: ${d.portfolios?.length || 0} portfolios, ${d.tasks?.length || 0} tasks`);
+    if (!data) return null;
     return data.data;
   } catch (err) {
-    dbg(`cloudLoad FAILED: ${err.message}`);
     console.error("cloudLoad failed", err);
     return null;
   }
 }
 
 async function cloudSave(state) {
-  const counts = `${state.portfolios?.length || 0}p/${state.workstreams?.length || 0}w/${state.tasks?.length || 0}t`;
-  dbg(`cloudSave: writing ${counts} for user ${currentUserId?.slice(0, 8)}…`);
   try {
     const query = client
       .from("tracker_state")
@@ -177,14 +131,10 @@ async function cloudSave(state) {
     const { error } = await Promise.race([query, timeout]);
 
     if (error) {
-      dbg(`cloudSave ERROR: ${error.message} (code ${error.code || "?"})`);
       console.error("cloudSave", error);
       showCloudError("Save failed: " + error.message);
-    } else {
-      dbg(`cloudSave OK (${counts})`);
     }
   } catch (err) {
-    dbg(`cloudSave FAILED: ${err.message}`);
     console.error("cloudSave failed", err);
     showCloudError("Save failed: " + err.message);
   }
@@ -227,7 +177,6 @@ async function maybeMigrate() {
 
 async function bootApp(session) {
   currentUserId = session.user.id;
-  dbg(`bootApp: logged in as ${session.user.email}`);
   await maybeMigrate();
 
   // Expose the cloud API for app.js, then load app.js.
@@ -253,7 +202,6 @@ async function bootOnce(session) {
 }
 
 client.auth.onAuthStateChange((event, session) => {
-  dbg(`auth event: ${event}`);
   if (event === "SIGNED_OUT") {
     booted = false;
     window.WorkTrackerCloud = null;
