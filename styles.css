@@ -132,6 +132,69 @@ main {
   margin: 0.2rem 0 0;
 }
 
+.productivity {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+.productivity-header {
+  align-items: baseline;
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.productivity-chart {
+  align-items: flex-end;
+  display: flex;
+  gap: 2px;
+  height: 100px;
+}
+
+.productivity-bar-group {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.productivity-bar-wrapper {
+  display: flex;
+  align-items: flex-end;
+  height: 64px;
+  width: 100%;
+}
+
+.productivity-bar {
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+  width: 100%;
+  min-height: 0;
+  transition: height 0.3s ease;
+}
+
+.productivity-count {
+  color: var(--ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+  height: 0.9rem;
+}
+
+.productivity-label {
+  color: var(--muted);
+  font-size: 0.65rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
 .layout {
   align-items: start;
   display: grid;

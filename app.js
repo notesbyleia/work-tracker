@@ -72,6 +72,9 @@ const els = {
   previewDialog:       document.querySelector("#preview-dialog"),
   previewBoard:        document.querySelector("#preview-board"),
   closePreview:        document.querySelector("#close-preview"),
+  // Productivity
+  productivityChart:   document.querySelector("#productivity-chart"),
+  productivityTotal:   document.querySelector("#productivity-total"),
   // Metrics
   metricChase:         document.querySelector("#metric-chase"),
   metricRisk:          document.querySelector("#metric-risk"),
@@ -442,6 +445,7 @@ function render() {
   renderPreviewMode();
   renderSelectors();
   renderMetrics();
+  renderProductivity();
   renderPriorityQueue();
   renderDashboard();
   renderPortfolioBoard();
@@ -495,6 +499,32 @@ function renderMetrics() {
   els.metricRisk.textContent  = activeTasks.filter((t) => riskLevel(t) === "high").length;
   els.metricBack.textContent  = activeTasks.filter((t) => t.status === "received" || t.status === "with-me").length;
   els.metricHours.textContent = `${state.workstreams.reduce((sum, ws) => activeWorkstreamIds.has(ws.id) ? sum + Number(ws.effort) : sum, 0)}h`;
+}
+
+function renderProductivity() {
+  if (!els.productivityChart) return;
+  const days = 14;
+  const counts = [];
+  const todayDate = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(todayDate);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
+    const count = state.tasks.filter((t) => t.completedAt && t.completedAt.slice(0, 10) === dateStr).length;
+    counts.push({ dateStr, label, count });
+  }
+  const max = Math.max(1, ...counts.map((c) => c.count));
+  const total = counts.reduce((s, c) => s + c.count, 0);
+  els.productivityTotal.textContent = `${total} completed in last ${days} days`;
+  els.productivityChart.innerHTML = counts.map((c) => `
+    <div class="productivity-bar-group">
+      <div class="productivity-bar-wrapper">
+        <div class="productivity-bar" style="height: ${Math.max(c.count ? 4 : 0, (c.count / max) * 100)}%"></div>
+      </div>
+      <span class="productivity-count">${c.count || ""}</span>
+      <span class="productivity-label">${c.label}</span>
+    </div>`).join("");
 }
 
 function renderDashboard() {
