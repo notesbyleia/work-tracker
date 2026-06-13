@@ -557,7 +557,7 @@ function renderProductivity() {
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const d = new Date(year, month, day);
-    const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
+    const label = String(day);
     const count = state.tasks.filter((t) => t.completedAt && completedDateSGT(t) === dateStr).length;
     const isToday = dateStr === today();
     allCounts.push({ dateStr, label, count, isToday });
