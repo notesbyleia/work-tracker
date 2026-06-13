@@ -164,6 +164,17 @@ label {
   font-weight: 700;
 }
 
+.checkbox-row {
+  align-items: center;
+  display: flex;
+  gap: 0.55rem;
+}
+
+.checkbox-row input {
+  inline-size: auto;
+  margin: 0;
+}
+
 input,
 select,
 textarea {
@@ -348,6 +359,16 @@ textarea {
   line-height: 1.25;
 }
 
+.portfolio-dot {
+  background: var(--portfolio-color);
+  border-radius: 999px;
+  display: inline-block;
+  height: 0.72rem;
+  margin-right: 0.45rem;
+  vertical-align: -0.05rem;
+  width: 0.72rem;
+}
+
 .meta {
   color: var(--muted);
   font-size: 0.84rem;
@@ -382,6 +403,12 @@ textarea {
 .pill.green {
   background: #eaf7f0;
   color: var(--green);
+}
+
+.muted-row {
+  background: #f7f8f5;
+  border-radius: 8px;
+  padding: 0.55rem;
 }
 
 .actions {
