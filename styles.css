@@ -132,6 +132,14 @@ main {
   margin: 0.2rem 0 0;
 }
 
+.productivity {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
 .productivity-header {
   align-items: center;
   display: flex;
