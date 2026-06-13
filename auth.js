@@ -18,6 +18,46 @@ if (!cfg.url || cfg.url.includes("YOUR-PROJECT")) {
 
 const client = createClient(cfg.url, cfg.anonKey);
 
+// ─── On-screen debug log (mobile-friendly) ───────────────────────────────────
+
+const DEBUG = true;
+
+function dbg(msg) {
+  if (!DEBUG) return;
+  let panel = document.querySelector("#debug-log");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "debug-log";
+    panel.style.cssText =
+      "position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow:auto;z-index:99999;" +
+      "background:#111;color:#0f0;padding:8px 10px 12px;font:11px/1.4 monospace;" +
+      "border-top:2px solid #0f0;";
+    const header = document.createElement("div");
+    header.style.cssText = "display:flex;justify-content:space-between;color:#fff;margin-bottom:4px;";
+    header.innerHTML = "<strong>debug log</strong>";
+    const close = document.createElement("button");
+    close.textContent = "hide";
+    close.style.cssText = "background:#333;color:#fff;border:none;padding:2px 8px;border-radius:4px;";
+    close.onclick = () => panel.remove();
+    header.append(close);
+    panel.append(header);
+    const body = document.createElement("div");
+    body.id = "debug-log-body";
+    panel.append(body);
+    document.body.append(panel);
+  }
+  const line = document.createElement("div");
+  const t = new Date().toLocaleTimeString();
+  line.textContent = `[${t}] ${msg}`;
+  document.querySelector("#debug-log-body")?.append(line);
+}
+
+// Make dbg available globally so app.js can use it too.
+window.__dbg = dbg;
+
+dbg("auth.js loaded; supabase client created");
+
+
 // ─── Auth gate UI ──────────────────────────────────────────────────────────
 
 function renderAuthGate(message = "") {
@@ -69,20 +109,50 @@ function setMessage(text) {
 let currentUserId = null;
 
 async function cloudLoad() {
+  dbg(`cloudLoad: querying for user ${currentUserId?.slice(0, 8)}…`);
   const { data, error } = await client
     .from("tracker_state")
     .select("data")
     .eq("user_id", currentUserId)
     .maybeSingle();
-  if (error) { console.error("cloudLoad", error); return null; }
-  return data ? data.data : null;
+  if (error) {
+    dbg(`cloudLoad ERROR: ${error.message} (code ${error.code || "?"})`);
+    console.error("cloudLoad", error);
+    return null;
+  }
+  if (!data) { dbg("cloudLoad: no row yet (empty)"); return null; }
+  const d = data.data || {};
+  dbg(`cloudLoad OK: ${d.portfolios?.length || 0} portfolios, ${d.tasks?.length || 0} tasks`);
+  return data.data;
 }
 
 async function cloudSave(state) {
+  const counts = `${state.portfolios?.length || 0}p/${state.workstreams?.length || 0}w/${state.tasks?.length || 0}t`;
+  dbg(`cloudSave: writing ${counts} for user ${currentUserId?.slice(0, 8)}…`);
   const { error } = await client
     .from("tracker_state")
     .upsert({ user_id: currentUserId, data: state }, { onConflict: "user_id" });
-  if (error) console.error("cloudSave", error);
+  if (error) {
+    dbg(`cloudSave ERROR: ${error.message} (code ${error.code || "?"})`);
+    console.error("cloudSave", error);
+    showCloudError("Save failed: " + error.message);
+  } else {
+    dbg(`cloudSave OK (${counts})`);
+  }
+}
+
+function showCloudError(msg) {
+  let banner = document.querySelector("#cloud-error");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "cloud-error";
+    banner.style.cssText =
+      "position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#c0392b;color:#fff;" +
+      "padding:10px 14px;font:13px/1.4 system-ui,sans-serif;";
+    document.body.append(banner);
+  }
+  banner.textContent = msg;
+  setTimeout(() => banner.remove(), 8000);
 }
 
 // One-time migration: if cloud is empty and localStorage has data, push it up.
@@ -108,6 +178,7 @@ async function maybeMigrate() {
 
 async function bootApp(session) {
   currentUserId = session.user.id;
+  dbg(`bootApp: logged in as ${session.user.email}`);
   await maybeMigrate();
 
   // Expose the cloud API for app.js, then load app.js.
