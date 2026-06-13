@@ -349,6 +349,13 @@ document.addEventListener("focusin", (event) => {
 // ─── Drag & drop ─────────────────────────────────────────────────────────────
 
 document.addEventListener("dragstart", (event) => {
+  const calTask = event.target.closest(".calendar-task-name[draggable='true']");
+  if (calTask) {
+    event.dataTransfer.setData("text/plain", calTask.dataset.taskId);
+    event.dataTransfer.effectAllowed = "move";
+    calTask.classList.add("dragging");
+    return;
+  }
   const card = event.target.closest(".task-card");
   if (!card) return;
   event.dataTransfer.setData("text/plain", card.dataset.id);
@@ -358,7 +365,36 @@ document.addEventListener("dragstart", (event) => {
 
 document.addEventListener("dragend", (event) => {
   event.target.closest(".task-card")?.classList.remove("dragging");
+  event.target.closest(".calendar-task-name")?.classList.remove("dragging");
   document.querySelectorAll(".lane.drag-over").forEach((l) => l.classList.remove("drag-over"));
+  document.querySelectorAll(".calendar-day.drag-over").forEach((d) => d.classList.remove("drag-over"));
+});
+
+document.addEventListener("dragover", (event) => {
+  const dayCell = event.target.closest(".calendar-day[data-cal-date]");
+  if (!dayCell) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  document.querySelectorAll(".calendar-day.drag-over").forEach((d) => d.classList.remove("drag-over"));
+  dayCell.classList.add("drag-over");
+});
+
+document.addEventListener("dragleave", (event) => {
+  const dayCell = event.target.closest(".calendar-day[data-cal-date]");
+  if (dayCell) dayCell.classList.remove("drag-over");
+});
+
+document.addEventListener("drop", (event) => {
+  const dayCell = event.target.closest(".calendar-day[data-cal-date]");
+  if (!dayCell) return;
+  event.preventDefault();
+  dayCell.classList.remove("drag-over");
+  const taskId = event.dataTransfer.getData("text/plain");
+  const task = state.tasks.find((t) => t.id === taskId);
+  if (!task) return;
+  task.dueDate = dayCell.dataset.calDate;
+  saveState();
+  render();
 });
 
 document.addEventListener("pointerdown", (event) => {
@@ -783,7 +819,7 @@ function priorityItemMarkup(task, rank) {
 }
 
 function calendarTaskNameMarkup(task) {
-  return `<span class="calendar-task-name">${escapeHtml(task.title)}</span>`;
+  return `<span class="calendar-task-name" draggable="true" data-task-id="${task.id}">${escapeHtml(task.title)}</span>`;
 }
 
 function inputSummaryMarkup(input) {
