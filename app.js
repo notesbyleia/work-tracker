@@ -1,4 +1,4 @@
-(() => {
+(() => {(() => {
 "use strict";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -79,8 +79,40 @@ const els = {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-migrateState();
-render();
+// If the cloud layer (auth.js) is present, load the user's state from Supabase
+// before first render. Otherwise fall back to localStorage.
+async function init() {
+  if (window.WorkTrackerCloud) {
+    const cloudState = await window.WorkTrackerCloud.load();
+    if (cloudState) state = cloudState;
+    addSignOutButton();
+  }
+  migrateState();
+  render();
+}
+
+function addSignOutButton() {
+  const actions = document.querySelector(".header-actions");
+  if (!actions || document.querySelector("#sign-out")) return;
+  const btn = document.createElement("button");
+  btn.id = "sign-out";
+  btn.className = "ghost";
+  btn.textContent = `Sign out (${window.WorkTrackerCloud.userEmail})`;
+  btn.addEventListener("click", () => window.WorkTrackerCloud.signOut());
+  actions.append(btn);
+}
+
+// If auth.js is on the page, wait for it to establish a session and set up
+// the cloud API before initialising. Otherwise (no auth), init immediately.
+if (document.querySelector('script[src*="auth.js"]')) {
+  if (window.WorkTrackerCloud) {
+    init();
+  } else {
+    document.addEventListener("work-tracker-cloud-ready", init, { once: true });
+  }
+} else {
+  init();
+}
 
 // ─── Event listeners ──────────────────────────────────────────────────────────
 
@@ -833,7 +865,12 @@ function loadState() {
 
 function saveState() {
   if (previewMode) return;
+  // Always keep a local copy as a cache/offline fallback.
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
+  // If logged in, persist to the cloud too.
+  if (window.WorkTrackerCloud) {
+    window.WorkTrackerCloud.save(state);
+  }
 }
 
 function migrateState() {
