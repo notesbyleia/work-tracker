@@ -59,22 +59,34 @@ dbg("auth.js loaded; supabase client created");
 
 
 // ─── Auth gate UI ──────────────────────────────────────────────────────────
+// Shows the login form as an OVERLAY without destroying the app's HTML,
+// so no page reload is ever needed (which previously caused a reload loop).
 
 function renderAuthGate(message = "") {
-  document.body.innerHTML = `
-    <div class="auth-gate">
-      <form id="auth-form" class="auth-card">
-        <h1>Work Tracker</h1>
-        <p class="auth-sub">Sign in to sync across your devices.</p>
-        <label>Email <input name="email" type="email" required autocomplete="email" /></label>
-        <label>Password <input name="password" type="password" required minlength="6" autocomplete="current-password" /></label>
-        <div class="auth-actions">
-          <button type="submit" data-mode="signin">Log in</button>
-          <button type="submit" data-mode="signup" class="secondary">Sign up</button>
-        </div>
-        <p id="auth-message" class="auth-message">${message}</p>
-      </form>
-    </div>`;
+  // Hide the app content while logged out.
+  document.querySelectorAll("body > header, body > main").forEach((el) => {
+    el.style.display = "none";
+  });
+
+  let gate = document.querySelector("#auth-gate");
+  if (gate) { gate.style.display = "grid"; setMessage(message); return; }
+
+  gate = document.createElement("div");
+  gate.id = "auth-gate";
+  gate.className = "auth-gate";
+  gate.innerHTML = `
+    <form id="auth-form" class="auth-card">
+      <h1>Work Tracker</h1>
+      <p class="auth-sub">Sign in to sync across your devices.</p>
+      <label>Email <input name="email" type="email" required autocomplete="email" /></label>
+      <label>Password <input name="password" type="password" required minlength="6" autocomplete="current-password" /></label>
+      <div class="auth-actions">
+        <button type="submit" data-mode="signin">Log in</button>
+        <button type="submit" data-mode="signup" class="secondary">Sign up</button>
+      </div>
+      <p id="auth-message" class="auth-message">${message}</p>
+    </form>`;
+  document.body.append(gate);
 
   const form = document.querySelector("#auth-form");
   let mode = "signin";
@@ -95,7 +107,18 @@ function renderAuthGate(message = "") {
       setMessage("Check your email to confirm your account, then log in.");
       return;
     }
-    // Session established — onAuthStateChange will boot the app.
+    // Session established — boot directly (no reload).
+    if (data.session) {
+      await bootOnce(data.session);
+    }
+  });
+}
+
+function hideAuthGate() {
+  const gate = document.querySelector("#auth-gate");
+  if (gate) gate.style.display = "none";
+  document.querySelectorAll("body > header, body > main").forEach((el) => {
+    el.style.display = "";
   });
 }
 
@@ -219,24 +242,32 @@ async function bootApp(session) {
   document.dispatchEvent(new CustomEvent("work-tracker-cloud-ready"));
 }
 
-client.auth.onAuthStateChange((event, session) => {
-  if (event === "SIGNED_IN" && session && !booted) {
-    // Fresh login from the auth gate — reload to restore the app's HTML cleanly.
-    location.reload();
-  }
-  if (event === "SIGNED_OUT") {
-    location.reload();
-  }
-});
-
 let booted = false;
+
+// Boot the app once, in place. No reloads.
+async function bootOnce(session) {
+  if (booted) return;
+  booted = true;
+  hideAuthGate();
+  await bootApp(session);
+}
+
+client.auth.onAuthStateChange((event, session) => {
+  dbg(`auth event: ${event}`);
+  if (event === "SIGNED_OUT") {
+    booted = false;
+    window.WorkTrackerCloud = null;
+    renderAuthGate("Signed out.");
+  }
+  // Note: we deliberately do NOT boot on SIGNED_IN here, to avoid double-boot.
+  // Initial load and the login form's submit handler both call bootOnce directly.
+});
 
 // Initial check on page load.
 (async () => {
   const { data } = await client.auth.getSession();
   if (data.session) {
-    booted = true;
-    await bootApp(data.session);
+    await bootOnce(data.session);
   } else {
     renderAuthGate();
   }
