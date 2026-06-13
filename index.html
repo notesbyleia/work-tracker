@@ -13,7 +13,8 @@
         <h1>Plan work by portfolio, workstream, and task.</h1>
       </div>
       <div class="header-actions">
-        <button id="seed-data" class="secondary">Load sample data</button>
+        <button id="seed-data" class="secondary">Preview sample data</button>
+        <button id="exit-preview" class="ghost hidden">Back to my data</button>
         <button id="clear-data" class="ghost">Reset</button>
       </div>
     </header>
@@ -30,7 +31,7 @@
         </article>
         <article>
           <span id="metric-back">0</span>
-          <p>back with me</p>
+          <p>with me</p>
         </article>
         <article>
           <span id="metric-hours">0h</span>
@@ -125,12 +126,38 @@
               <select name="status">
                 <option value="waiting">Waiting</option>
                 <option value="chased">Chased</option>
-                <option value="received">Received</option>
+                <option value="with-me">With me</option>
+                <option value="received">Inputs received</option>
                 <option value="completed">Completed</option>
               </select>
             </label>
             <button type="submit">Add task</button>
           </form>
+
+          <div class="divider"></div>
+
+          <div class="panel-heading">
+            <h2>Data</h2>
+          </div>
+          <div class="stack">
+            <button id="download-data" type="button" class="secondary">Download CSV</button>
+            <label>
+              Upload data
+              <input id="upload-data" type="file" accept=".csv,.json,application/json,text/csv" />
+            </label>
+            <fieldset class="import-mode">
+              <legend>Upload mode</legend>
+              <label class="checkbox-row">
+                <input name="importMode" type="radio" value="merge" checked />
+                <span>Add new entries to existing data</span>
+              </label>
+              <label class="checkbox-row">
+                <input name="importMode" type="radio" value="replace" />
+                <span>Replace all data with uploaded file</span>
+              </label>
+            </fieldset>
+            <p id="import-status" class="meta" role="status"></p>
+          </div>
         </aside>
 
         <section class="workspace">
@@ -159,7 +186,7 @@
                 <div id="waiting-list" class="card-list"></div>
               </article>
               <article class="lane" data-lane="received">
-                <h2>Back with me</h2>
+                <h2>With me</h2>
                 <div id="back-list" class="card-list"></div>
               </article>
               <article class="lane" data-lane="completed">
@@ -191,6 +218,6 @@
       </div>
     </template>
 
-    <script src="app.js?v=0e9944e"></script>
+    <script src="app.js?v=import-export-2"></script>
   </body>
 </html>
