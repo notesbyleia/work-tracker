@@ -46,7 +46,7 @@
           <form id="portfolio-form" class="stack">
             <label>
               Portfolio
-              <input name="name" required placeholder="e.g. Transport" />
+              <input name="name" required placeholder="e.g. Corporate" />
             </label>
             <button type="submit">Create portfolio</button>
           </form>
@@ -63,7 +63,7 @@
             </label>
             <label>
               Workstream
-              <input name="name" required placeholder="e.g. HV lodgement scheme" />
+              <input name="name" required placeholder="e.g. Quarterly planning" />
             </label>
             <label>
               Final workstream deadline
@@ -94,11 +94,15 @@
             </label>
             <label>
               Task
-              <textarea name="title" required placeholder="e.g. Provide inputs to MOT's pre-cab paper"></textarea>
+              <textarea name="title" required placeholder="e.g. Draft briefing note"></textarea>
             </label>
             <label>
               People / agencies inputs needed
-              <input name="inputs" required placeholder="Comma-separated, e.g. MOT, LTA, Finance" />
+              <input name="inputs" placeholder="Optional, comma-separated, e.g. HR, Finance" />
+            </label>
+            <label class="checkbox-row">
+              <input name="noInputs" type="checkbox" />
+              <span>No external inputs needed; this task is with me</span>
             </label>
             <div class="two-col">
               <label>
@@ -187,6 +191,6 @@
       </div>
     </template>
 
-    <script src="app.js?v=8a3e1ec"></script>
+    <script src="app.js?v=2b7c9d1"></script>
   </body>
 </html>
