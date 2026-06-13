@@ -92,6 +92,10 @@ h2 {
   gap: 0.5rem;
 }
 
+.hidden {
+  display: none !important;
+}
+
 main {
   margin: 0 auto;
   max-width: 1440px;
@@ -184,6 +188,25 @@ textarea {
   color: var(--ink);
   min-width: 0;
   padding: 0.7rem 0.75rem;
+}
+
+fieldset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 0;
+  padding: 0.75rem;
+}
+
+legend {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 0 0.25rem;
+}
+
+.import-mode {
+  display: grid;
+  gap: 0.6rem;
 }
 
 textarea {
