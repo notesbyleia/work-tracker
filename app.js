@@ -38,6 +38,8 @@ let state = loadState();
 let pointerDragTaskId = "";
 let previewMode = false;
 let prePreviewState = null;
+let calendarMonth = startOfMonth(new Date());   // first day of the month shown in Calendar
+let selectedCalendarDate = null;                 // YYYY-MM-DD the user tapped, if any
 
 // ─── DOM refs ────────────────────────────────────────────────────────────────
 // Only reference elements that actually exist in index.html
@@ -242,6 +244,26 @@ els.tabs.forEach((tab) => {
 });
 
 document.addEventListener("click", (event) => {
+  // Calendar month navigation
+  const nav = event.target.closest("[data-cal-nav]");
+  if (nav) {
+    const dir = nav.dataset.calNav;
+    if (dir === "prev")  calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+    if (dir === "next")  calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+    if (dir === "today") { calendarMonth = startOfMonth(new Date()); selectedCalendarDate = today(); }
+    renderCalendar();
+    return;
+  }
+
+  // Calendar day selection (toggle)
+  const cell = event.target.closest("[data-cal-date]");
+  if (cell) {
+    const d = cell.dataset.calDate;
+    selectedCalendarDate = selectedCalendarDate === d ? null : d;
+    renderCalendar();
+    return;
+  }
+
   const action = event.target.dataset.action;
   const id     = event.target.dataset.id;
   if (!action || !id) return;
@@ -540,26 +562,81 @@ function renderPeople() {
 
 function renderCalendar() {
   if (!els.calendarViewer) return;
-  // Group non-completed tasks by due date
-  const byDate = new Map();
-  state.tasks
-    .filter((t) => t.status !== "completed")
-    .forEach((t) => {
-      if (!byDate.has(t.dueDate)) byDate.set(t.dueDate, []);
-      byDate.get(t.dueDate).push(t);
-    });
 
-  const sorted = [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b));
-  if (!sorted.length) {
-    els.calendarViewer.innerHTML = emptyMarkup("No upcoming tasks.", "Add tasks to see them here.");
-    return;
+  // Map every task deadline to its date (include completed, shown muted).
+  const byDate = new Map();
+  state.tasks.forEach((t) => {
+    if (!t.dueDate) return;
+    if (!byDate.has(t.dueDate)) byDate.set(t.dueDate, []);
+    byDate.get(t.dueDate).push(t);
+  });
+
+  const year  = calendarMonth.getFullYear();
+  const month = calendarMonth.getMonth();
+  const monthLabel = calendarMonth.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
+  // Grid starts on Monday. Compute leading blanks.
+  const firstOfMonth = new Date(year, month, 1);
+  const jsDay = firstOfMonth.getDay();              // 0=Sun..6=Sat
+  const leadingBlanks = (jsDay + 6) % 7;            // convert so Monday=0
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr = today();
+
+  const weekdayHeaders = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    .map((d) => `<div class="cal-weekday">${d}</div>`).join("");
+
+  const cells = [];
+  for (let i = 0; i < leadingBlanks; i++) cells.push(`<div class="cal-cell cal-blank"></div>`);
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dayTasks = byDate.get(dateStr) || [];
+    const active = dayTasks.filter((t) => t.status !== "completed");
+    const isToday = dateStr === todayStr;
+    const isSelected = dateStr === selectedCalendarDate;
+    const hasOverdue = active.some((t) => daysUntil(t.dueDate) < 0);
+
+    let dots = "";
+    if (active.length) {
+      const cls = hasOverdue ? "cal-dot overdue" : "cal-dot";
+      dots = `<div class="cal-dots"><span class="${cls}"></span>${active.length > 1 ? `<span class="cal-count">${active.length}</span>` : ""}</div>`;
+    }
+
+    const classes = ["cal-cell"];
+    if (isToday) classes.push("cal-today");
+    if (isSelected) classes.push("cal-selected");
+    if (active.length) classes.push("cal-has-tasks");
+
+    cells.push(`
+      <div class="${classes.join(" ")}" data-cal-date="${dateStr}">
+        <span class="cal-daynum">${day}</span>
+        ${dots}
+      </div>`);
   }
 
-  els.calendarViewer.innerHTML = sorted.map(([date, tasks]) => `
-    <div class="calendar-day">
-      <h3 class="calendar-date">${formatDate(date)}</h3>
-      <div class="card-list">${tasks.map(taskMarkup).join("")}</div>
-    </div>`).join("");
+  // Detail list for the selected day (if any tasks).
+  let detail = "";
+  if (selectedCalendarDate) {
+    const dayTasks = (byDate.get(selectedCalendarDate) || []).slice().sort(byUrgency);
+    detail = `
+      <div class="cal-detail">
+        <h3>${formatDate(selectedCalendarDate)}</h3>
+        ${dayTasks.length ? dayTasks.map(taskMarkup).join("") : emptyMarkup("No tasks due this day.", "")}
+      </div>`;
+  }
+
+  els.calendarViewer.innerHTML = `
+    <div class="cal-header">
+      <button class="ghost" data-cal-nav="prev">‹</button>
+      <strong class="cal-month">${monthLabel}</strong>
+      <button class="ghost" data-cal-nav="next">›</button>
+      <button class="secondary cal-today-btn" data-cal-nav="today">Today</button>
+    </div>
+    <div class="cal-grid">
+      ${weekdayHeaders}
+      ${cells.join("")}
+    </div>
+    ${detail}`;
 }
 
 function renderCompleted() {
@@ -1188,6 +1265,9 @@ function offsetDate(days) {
   const d = new Date();
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
+}
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 function formatDate(dateStr) {
   if (!dateStr) return "—";
