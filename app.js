@@ -114,7 +114,7 @@ if (document.querySelector('script[src*="auth.js"]')) {
   if (window.WorkTrackerCloud) {
     init();
   } else {
-    document.addEventListener("work-tracker-cloud-ready", init, { once: true });
+    document.addEventListener("work-tracker-cloud-ready", init);
   }
 } else {
   init();
@@ -450,10 +450,12 @@ function renderSelect(select, items, emptyLabel, labelFn = (item) => item.name) 
 }
 
 function renderMetrics() {
-  els.metricChase.textContent = state.tasks.filter((t) => t.status === "chased").length;
-  els.metricRisk.textContent  = state.tasks.filter((t) => riskLevel(t) === "high").length;
-  els.metricBack.textContent  = state.tasks.filter((t) => t.status === "received" || t.status === "with-me").length;
-  els.metricHours.textContent = `${state.workstreams.reduce((sum, ws) => sum + Number(ws.effort), 0)}h`;
+  const activeTasks = openTasks();
+  const activeWorkstreamIds = new Set(activeTasks.map((task) => task.workstreamId));
+  els.metricChase.textContent = activeTasks.filter((t) => t.status === "chased").length;
+  els.metricRisk.textContent  = activeTasks.filter((t) => riskLevel(t) === "high").length;
+  els.metricBack.textContent  = activeTasks.filter((t) => t.status === "received" || t.status === "with-me").length;
+  els.metricHours.textContent = `${state.workstreams.reduce((sum, ws) => activeWorkstreamIds.has(ws.id) ? sum + Number(ws.effort) : sum, 0)}h`;
 }
 
 function renderDashboard() {
@@ -671,44 +673,93 @@ function renderHtmlOrEmpty(container, items) {
 
 function taskMarkup(task) {
   if (task.editing) return editTaskMarkup(task);
+  if (task.status === "completed") return completedTaskMarkup(task);
   const workstream = findWorkstream(task.workstreamId);
   const portfolio  = workstream ? findPortfolio(workstream.portfolioId) : null;
   const level      = riskLevel(task);
   const inputCountLabel = task.inputs.length ? `${task.inputs.length} inputs` : "with me";
   return `
-    <article class="task-card request-card risk-${level}" draggable="true" data-id="${task.id}">
-      <div class="card-title">
-        <strong>${escapeHtml(task.title)}</strong>
-        ${riskPill(level)}
-      </div>
-      <p class="meta">${portfolioPathMarkup(portfolio, workstream)} · due ${formatDate(task.dueDate)} · likely ${formatDate(expectedReturn(task))}</p>
-      <div class="input-list">
-        ${task.inputs.length ? task.inputs.map(inputSummaryMarkup).join("") : noInputsMarkup()}
-      </div>
-      <div class="pill-row">
+    <details class="task-card request-card compact-card risk-${level}" draggable="true" data-id="${task.id}">
+      <summary>
+        <span class="summary-main">
+          <strong>${escapeHtml(task.title)}</strong>
+          <span class="meta">${portfolioPathMarkup(portfolio, workstream)} · due ${formatDate(task.dueDate)}</span>
+        </span>
         <span class="pill ${statusClass(task.status)}">${labelStatus(task.status)}</span>
-        <span class="pill">${priorityLabel(task)}</span>
-        <span class="pill">${inputCountLabel}</span>
-        <span class="pill">${totalChases(task)} chases</span>
+      </summary>
+      <div class="compact-body">
+        <p class="meta">Likely return ${formatDate(expectedReturn(task))} · ${priorityLabel(task)} · ${totalChases(task)} chases</p>
+        <div class="input-list">
+          ${task.inputs.length ? task.inputs.map(inputSummaryMarkup).join("") : noInputsMarkup()}
+        </div>
+        <div class="pill-row">
+          ${riskPill(level)}
+          <span class="pill">${inputCountLabel}</span>
+        </div>
+        <div class="actions">
+          <button data-action="edit-task" data-id="${task.id}">Edit</button>
+          <button data-action="waiting"   data-id="${task.id}">Waiting</button>
+          ${task.inputs.length ? `<button data-action="chase" data-id="${task.id}">Chased today</button>` : ""}
+          <button data-action="receive"  data-id="${task.id}">Inputs received</button>
+          <button data-action="complete" data-id="${task.id}">Completed</button>
+          <button data-action="delete-task" data-id="${task.id}" class="ghost">Delete</button>
+        </div>
       </div>
-      <div class="actions">
-        <button data-action="edit-task" data-id="${task.id}">Edit</button>
-        <button data-action="waiting"   data-id="${task.id}">Waiting</button>
-        ${task.inputs.length ? `<button data-action="chase" data-id="${task.id}">Chased today</button>` : ""}
-        <button data-action="receive"  data-id="${task.id}">Inputs received</button>
-        <button data-action="complete" data-id="${task.id}">Completed</button>
-        <button data-action="delete-task" data-id="${task.id}" class="ghost">Delete</button>
+    </details>`;
+}
+
+function completedTaskMarkup(task) {
+  const workstream = findWorkstream(task.workstreamId);
+  const portfolio  = workstream ? findPortfolio(workstream.portfolioId) : null;
+  return `
+    <details class="task-card request-card compact-card" draggable="false" data-id="${task.id}">
+      <summary>
+        <span class="summary-main">
+          <strong>${escapeHtml(task.title)}</strong>
+          <span class="meta">${portfolioPathMarkup(portfolio, workstream)} · due ${formatDate(task.dueDate)}</span>
+        </span>
+        <span class="pill green">Completed</span>
+      </summary>
+      <div class="compact-body">
+        <p class="meta">Completed ${formatDate(task.completedAt)} · ${totalChases(task)} chases</p>
+        <div class="input-list">
+          ${task.inputs.length ? task.inputs.map(completedInputSummaryMarkup).join("") : completedNoInputsMarkup()}
+        </div>
+        <div class="actions">
+          <button data-action="edit-task" data-id="${task.id}">Edit</button>
+          <button data-action="delete-task" data-id="${task.id}" class="ghost">Delete</button>
+        </div>
       </div>
-    </article>`;
+    </details>`;
+}
+
+function completedInputSummaryMarkup(input) {
+  return `
+    <div class="input-row muted-row">
+      <strong>${escapeHtml(input.name)}</strong>
+      <span class="pill green">Completed</span>
+      <span class="meta">${Number(input.chaseCount || 0)} chases</span>
+    </div>`;
+}
+
+function completedNoInputsMarkup() {
+  return `<div class="input-row muted-row"><strong>Completed</strong><span class="meta">No external inputs needed</span></div>`;
 }
 
 function priorityItemMarkup(task, rank) {
   const workstream = findWorkstream(task.workstreamId);
   const portfolio  = workstream ? findPortfolio(workstream.portfolioId) : null;
   return `
-    <article class="priority-item risk-${riskLevel(task)}">
-      <span class="rank">${rank}</span>
-      <div>
+    <details class="priority-item risk-${riskLevel(task)}">
+      <summary>
+        <span class="rank">${rank}</span>
+        <span class="summary-main">
+          <strong>${escapeHtml(task.title)}</strong>
+          <span class="meta">${portfolioPathMarkup(portfolio, workstream)} · task due ${formatDate(task.dueDate)}</span>
+        </span>
+        ${riskPill(riskLevel(task))}
+      </summary>
+      <div class="compact-body">
         <div class="card-title">
           <strong>${escapeHtml(task.title)}</strong>
           ${riskPill(riskLevel(task))}
@@ -716,7 +767,7 @@ function priorityItemMarkup(task, rank) {
         <p class="meta">${portfolioPathMarkup(portfolio, workstream)} · task due ${formatDate(task.dueDate)} · workstream due ${formatDate(workstream?.deadline)}</p>
         <p class="meta">${escapeHtml(priorityReason(task))}</p>
       </div>
-    </article>`;
+    </details>`;
 }
 
 function inputSummaryMarkup(input) {

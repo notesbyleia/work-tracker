@@ -98,6 +98,29 @@ function setMessage(text) {
   if (el) el.textContent = text;
 }
 
+function addSignInToSyncButton() {
+  const actions = document.querySelector(".header-actions");
+  if (!actions || document.querySelector("#sign-in-sync")) return;
+  document.querySelector("#sign-out")?.remove();
+
+  const btn = document.createElement("button");
+  btn.id = "sign-in-sync";
+  btn.className = "ghost";
+  btn.type = "button";
+  btn.textContent = "Sign in to sync";
+  btn.addEventListener("click", () => {
+    localStorage.removeItem(SYNC_PREF_KEY);
+    booted = false;
+    btn.remove();
+    renderAuthGate();
+  });
+  actions.append(btn);
+}
+
+function removeSignInToSyncButton() {
+  document.querySelector("#sign-in-sync")?.remove();
+}
+
 // ─── Cloud storage API (used by app.js) ──────────────────────────────────────
 
 let currentUserId = null;
@@ -207,6 +230,8 @@ let booted = false;
 async function bootOnce(session) {
   if (booted) return;
   booted = true;
+  removeSignInToSyncButton();
+  localStorage.removeItem(SYNC_PREF_KEY);
   hideAuthGate();
   await bootApp(session);
 }
@@ -216,6 +241,7 @@ async function bootLocalOnly() {
   booted = true;
   window.WorkTrackerCloud = null;
   hideAuthGate();
+  addSignInToSyncButton();
   document.dispatchEvent(new CustomEvent("work-tracker-cloud-ready"));
 }
 
@@ -223,6 +249,7 @@ client.auth.onAuthStateChange((event, session) => {
   if (event === "SIGNED_OUT") {
     booted = false;
     window.WorkTrackerCloud = null;
+    removeSignInToSyncButton();
     renderAuthGate("Signed out.");
   }
   // Note: we deliberately do NOT boot on SIGNED_IN here, to avoid double-boot.
