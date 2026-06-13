@@ -652,6 +652,45 @@ details[open] summary::before {
   white-space: nowrap;
 }
 
+.portfolio-group > .group-heading {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-start;
+  list-style: none;
+  padding: 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.portfolio-group > .group-heading::-webkit-details-marker {
+  display: none;
+}
+
+.portfolio-group > .group-heading::before {
+  color: var(--muted);
+  content: "+";
+  font-weight: 900;
+}
+
+.portfolio-group[open] > .group-heading::before {
+  content: "-";
+}
+
+.portfolio-group[open] > .group-heading {
+  border-radius: 8px 8px 0 0;
+  margin-bottom: 0;
+}
+
+.portfolio-group > .board {
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+}
+
 @media (max-width: 980px) {
   .app-header,
   .layout {

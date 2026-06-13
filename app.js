@@ -484,18 +484,22 @@ function renderPortfolioBoard() {
   const items = sortedPortfolios().map((portfolio) => {
     if (portfolio.editing) return editPortfolioMarkup(portfolio);
     const workstreams = state.workstreams.filter((ws) => ws.portfolioId === portfolio.id);
+    const wsCount = workstreams.length;
+    const taskCount = state.tasks.filter((t) => workstreams.some((ws) => ws.id === t.workstreamId) && t.status !== "completed").length;
     return `
-      <section class="group">
-        <div class="group-heading">
+      <details class="group portfolio-group">
+        <summary class="group-heading">
           <h2>${portfolioNameMarkup(portfolio)}</h2>
+          <span class="pill">${wsCount} workstreams</span>
+          <span class="pill">${taskCount} tasks</span>
           <button data-action="edit-portfolio" data-id="${portfolio.id}">Edit</button>
           <button data-action="delete-portfolio" data-id="${portfolio.id}" class="ghost">Delete</button>
-        </div>
-        <div class="board">${workstreams.length
+        </summary>
+        <div class="board">${wsCount
           ? workstreams.map(workstreamGroupMarkup).join("")
           : emptyMarkup("No workstreams yet.", "Create a workstream and assign it to this portfolio.")
         }</div>
-      </section>`;
+      </details>`;
   });
   renderHtmlOrEmpty(els.portfolioBoard, items);
 }
