@@ -40,6 +40,7 @@ let previewMode = false;
 let prePreviewState = null;
 let calendarMonth = startOfMonth(new Date());   // first day of the month shown in Calendar
 let selectedCalendarDate = null;                 // YYYY-MM-DD the user tapped, if any
+let productivityOffset = 0;                      // scroll offset in days (negative = past)
 
 // ─── DOM refs ────────────────────────────────────────────────────────────────
 // Only reference elements that actually exist in index.html
@@ -75,6 +76,10 @@ const els = {
   // Productivity
   productivityChart:   document.querySelector("#productivity-chart"),
   productivityTotal:   document.querySelector("#productivity-total"),
+  productivityRange:   document.querySelector("#productivity-range"),
+  productivityPrev:    document.querySelector("#productivity-prev"),
+  productivityNext:    document.querySelector("#productivity-next"),
+  productivityToday:   document.querySelector("#productivity-today"),
   // Metrics
   metricChase:         document.querySelector("#metric-chase"),
   metricRisk:          document.querySelector("#metric-risk"),
@@ -246,6 +251,10 @@ els.tabs.forEach((tab) => {
     document.querySelector(`#${tab.dataset.view}-view`)?.classList.add("active");
   });
 });
+
+if (els.productivityPrev) els.productivityPrev.addEventListener("click", () => { productivityOffset -= 28; renderProductivity(); });
+if (els.productivityNext) els.productivityNext.addEventListener("click", () => { productivityOffset += 28; renderProductivity(); });
+if (els.productivityToday) els.productivityToday.addEventListener("click", () => { productivityOffset = 0; renderProductivity(); });
 
 document.addEventListener("click", (event) => {
   // Calendar month navigation
@@ -503,22 +512,28 @@ function renderMetrics() {
 
 function renderProductivity() {
   if (!els.productivityChart) return;
-  const days = 14;
+  const days = 28;
   const counts = [];
   const todayDate = new Date();
+  const endDate = new Date(todayDate);
+  endDate.setDate(endDate.getDate() + productivityOffset);
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(todayDate);
+    const d = new Date(endDate);
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().slice(0, 10);
     const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
     const count = state.tasks.filter((t) => t.completedAt && t.completedAt.slice(0, 10) === dateStr).length;
-    counts.push({ dateStr, label, count });
+    const isToday = dateStr === today();
+    counts.push({ dateStr, label, count, isToday });
   }
   const max = Math.max(1, ...counts.map((c) => c.count));
   const total = counts.reduce((s, c) => s + c.count, 0);
-  els.productivityTotal.textContent = `${total} completed in last ${days} days`;
+  const rangeStart = counts[0].label;
+  const rangeEnd = counts[counts.length - 1].label;
+  if (els.productivityRange) els.productivityRange.textContent = `${rangeStart} – ${rangeEnd}`;
+  els.productivityTotal.textContent = `${total} completed in this period`;
   els.productivityChart.innerHTML = counts.map((c) => `
-    <div class="productivity-bar-group">
+    <div class="productivity-bar-group${c.isToday ? " productivity-today" : ""}">
       <div class="productivity-bar-wrapper">
         <div class="productivity-bar" style="height: ${Math.max(c.count ? 4 : 0, (c.count / max) * 100)}%"></div>
       </div>

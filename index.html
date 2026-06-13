@@ -116,14 +116,6 @@
         </article>
       </section>
 
-      <section class="productivity" aria-label="daily productivity">
-        <div class="productivity-header">
-          <h2>Daily completions</h2>
-          <span id="productivity-total" class="meta"></span>
-        </div>
-        <div id="productivity-chart" class="productivity-chart"></div>
-      </section>
-
       <section class="layout">
         <aside class="panel">
           <div class="panel-heading">
@@ -255,6 +247,7 @@
             <button class="tab" data-view="people">People</button>
             <button class="tab" data-view="calendar">Calendar</button>
             <button class="tab" data-view="completed">Completed</button>
+            <button class="tab" data-view="productivity">Productivity</button>
           </nav>
 
           <section id="dashboard-view" class="view">
@@ -297,6 +290,20 @@
 
           <section id="completed-view" class="view">
             <div id="completed-list" class="table-list"></div>
+          </section>
+
+          <section id="productivity-view" class="view">
+            <div class="productivity-header">
+              <h2>Daily completions</h2>
+              <div class="productivity-controls">
+                <button id="productivity-prev" class="ghost">‹</button>
+                <span id="productivity-range" class="meta"></span>
+                <button id="productivity-next" class="ghost">›</button>
+                <button id="productivity-today" class="secondary">Current</button>
+              </div>
+              <span id="productivity-total" class="meta"></span>
+            </div>
+            <div id="productivity-chart" class="productivity-chart"></div>
           </section>
         </section>
       </section>
