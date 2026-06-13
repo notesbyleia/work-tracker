@@ -79,7 +79,6 @@ const els = {
   productivityMonth:   document.querySelector("#productivity-month"),
   productivityYear:    document.querySelector("#productivity-year"),
   productivityToday:   document.querySelector("#productivity-today"),
-  productivitySlider:  document.querySelector("#productivity-slider"),
   // Metrics
   metricChase:         document.querySelector("#metric-chase"),
   metricRisk:          document.querySelector("#metric-risk"),
@@ -260,10 +259,8 @@ if (els.productivityToday) els.productivityToday.addEventListener("click", () =>
   const y = now.toLocaleDateString("en-CA", { timeZone: "Asia/Singapore", year: "numeric" });
   if (els.productivityMonth) els.productivityMonth.value = String(parseInt(m, 10) - 1);
   if (els.productivityYear) els.productivityYear.value = y;
-  if (els.productivitySlider) els.productivitySlider.value = els.productivitySlider.max;
   renderProductivity();
 });
-if (els.productivitySlider) els.productivitySlider.addEventListener("input", () => renderProductivity());
 
 document.addEventListener("click", (event) => {
   // Calendar month navigation
@@ -566,22 +563,7 @@ function renderProductivity() {
     allCounts.push({ dateStr, label, count, isToday });
   }
 
-  // Slider controls visible window (7–31 days, ending at slider position)
-  if (els.productivitySlider) {
-    els.productivitySlider.min = "0";
-    els.productivitySlider.max = String(daysInMonth - 1);
-    const sliderVal = Math.min(parseInt(els.productivitySlider.value, 10), daysInMonth - 1);
-    const windowSize = Math.min(14, daysInMonth);
-    const endIdx = Math.max(sliderVal, windowSize - 1);
-    const startIdx = Math.max(0, endIdx - windowSize + 1);
-    var counts = allCounts.slice(startIdx, endIdx + 1);
-    if (els.productivityRange) {
-      els.productivityRange.textContent = `${counts[0].label} – ${counts[counts.length - 1].label}`;
-    }
-  } else {
-    var counts = allCounts;
-  }
-
+  const counts = allCounts;
   const max = Math.max(1, ...counts.map((c) => c.count));
   const monthTotal = allCounts.reduce((s, c) => s + c.count, 0);
   els.productivityTotal.textContent = `${monthTotal} completed this month`;
