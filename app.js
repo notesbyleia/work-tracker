@@ -785,7 +785,7 @@ function renderPeopleSuggestions(filter = "") {
   const names = new Set();
   state.tasks.forEach((t) => t.inputs.forEach((i) => names.add(i.name)));
   const lower = filter.toLowerCase();
-  const relevant = [...names].filter((n) => !filter || n.toLowerCase().includes(lower));
+  const relevant = [...names].filter((n) => !filter || n.toLowerCase().includes(lower)).sort((a, b) => a.localeCompare(b));
   els.peopleSuggestions.innerHTML = relevant.map((n) => `<option value="${escapeHtml(n)}"></option>`).join("");
 }
 
