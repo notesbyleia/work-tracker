@@ -1,4 +1,4 @@
-(() => {(() => {
+(() => {
 "use strict";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -82,13 +82,28 @@ const els = {
 // If the cloud layer (auth.js) is present, load the user's state from Supabase
 // before first render. Otherwise fall back to localStorage.
 async function init() {
-  if (window.WorkTrackerCloud) {
-    const cloudState = await window.WorkTrackerCloud.load();
-    if (cloudState) state = cloudState;
-    addSignOutButton();
+  try {
+    if (window.WorkTrackerCloud) {
+      const cloudState = await window.WorkTrackerCloud.load();
+      if (cloudState) state = cloudState;
+      addSignOutButton();
+    }
+    migrateState();
+    render();
+  } catch (err) {
+    showStartupError(err);
   }
-  migrateState();
-  render();
+}
+
+function showStartupError(err) {
+  const banner = document.createElement("div");
+  banner.style.cssText =
+    "position:fixed;top:0;left:0;right:0;z-index:9999;background:#c0392b;color:#fff;" +
+    "padding:12px 16px;font:14px/1.4 system-ui,sans-serif;white-space:pre-wrap;";
+  banner.textContent = "Startup error: " + (err && err.message ? err.message : String(err)) +
+    "\n" + (err && err.stack ? err.stack.split("\n").slice(0, 3).join("\n") : "");
+  document.body.prepend(banner);
+  console.error("Startup error:", err);
 }
 
 function addSignOutButton() {
