@@ -520,8 +520,8 @@ function renderProductivity() {
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(endDate);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
-    const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
+    const dateStr = sgtDateStr(d);
+    const label = d.toLocaleDateString("en-GB", { timeZone: "Asia/Singapore", weekday: "short", day: "numeric" });
     const count = state.tasks.filter((t) => t.completedAt && t.completedAt.slice(0, 10) === dateStr).length;
     const isToday = dateStr === today();
     counts.push({ dateStr, label, count, isToday });
@@ -1364,7 +1364,7 @@ function workstreamRisk(workstream, tasks) {
 function expectedReturn(task) {
   const d = new Date(task.dueDate);
   d.setDate(d.getDate() + Number(task.expectedDelay || 0));
-  return d.toISOString().slice(0, 10);
+  return sgtDateStr(d);
 }
 
 function totalChases(task) {
@@ -1420,8 +1420,11 @@ function parseInputNames(csv) {
 
 // ─── Date utilities ───────────────────────────────────────────────────────────
 
+function sgtDateStr(date) {
+  return date.toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" });
+}
 function now()        { return new Date().toISOString(); }
-function today()      { return new Date().toISOString().slice(0, 10); }
+function today()      { return sgtDateStr(new Date()); }
 function daysUntil(dateStr) {
   if (!dateStr) return 999;
   return Math.round((new Date(dateStr) - new Date(today())) / DAY);
@@ -1429,7 +1432,7 @@ function daysUntil(dateStr) {
 function offsetDate(days) {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return sgtDateStr(d);
 }
 function startOfMonth(date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
