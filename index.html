@@ -14,7 +14,6 @@
       </div>
       <div class="header-actions">
         <button id="seed-data" class="secondary">Preview sample data</button>
-        <button id="exit-preview" class="ghost hidden">Back to my data</button>
         <button id="clear-data" class="ghost">Reset</button>
       </div>
     </header>
@@ -99,7 +98,7 @@
             </label>
             <label>
               People / agencies inputs needed
-              <input name="inputs" placeholder="Optional, comma-separated, e.g. HR, Finance" />
+              <input name="inputs" list="people-suggestions" placeholder="Optional, comma-separated, e.g. HR, Finance" />
             </label>
             <label class="checkbox-row">
               <input name="noInputs" type="checkbox" />
@@ -141,6 +140,7 @@
           </div>
           <div class="stack">
             <button id="download-data" type="button" class="secondary">Download CSV</button>
+            <button id="recover-data" type="button" class="secondary">Recover previous data</button>
             <label>
               Upload data
               <input id="upload-data" type="file" accept=".csv,.json,application/json,text/csv" />
@@ -162,38 +162,35 @@
 
         <section class="workspace">
           <nav class="tabs" aria-label="views">
-            <button class="tab active" data-view="command">Today</button>
+            <button class="tab active" data-view="dashboard">Dashboard</button>
+            <button class="tab" data-view="priority">Priority</button>
             <button class="tab" data-view="portfolios">Portfolios</button>
             <button class="tab" data-view="tasks">All tasks</button>
             <button class="tab" data-view="people">People</button>
+            <button class="tab" data-view="calendar">Calendar</button>
+            <button class="tab" data-view="completed">Completed</button>
           </nav>
 
-          <section id="command-view" class="view active">
+          <section id="dashboard-view" class="view active">
+            <div class="view-grid dashboard-grid">
+              <article class="lane" data-lane="waiting">
+                <h2>Waiting</h2>
+                <div id="waiting-list" class="card-list"></div>
+              </article>
+              <article class="lane" data-lane="with-me">
+                <h2>With me</h2>
+                <div id="with-me-list" class="card-list"></div>
+              </article>
+            </div>
+          </section>
+
+          <section id="priority-view" class="view">
             <article class="priority-panel">
               <div class="panel-heading">
                 <h2>Priority queue</h2>
               </div>
               <div id="priority-list" class="priority-list"></div>
             </article>
-
-            <div class="view-grid">
-              <article class="lane" data-lane="chased">
-                <h2>To chase</h2>
-                <div id="chase-list" class="card-list"></div>
-              </article>
-              <article class="lane" data-lane="waiting">
-                <h2>Waiting</h2>
-                <div id="waiting-list" class="card-list"></div>
-              </article>
-              <article class="lane" data-lane="received">
-                <h2>With me</h2>
-                <div id="back-list" class="card-list"></div>
-              </article>
-              <article class="lane" data-lane="completed">
-                <h2>Completed</h2>
-                <div id="completed-list" class="card-list"></div>
-              </article>
-            </div>
           </section>
 
           <section id="portfolios-view" class="view">
@@ -207,9 +204,26 @@
           <section id="people-view" class="view">
             <div id="people-list" class="table-list"></div>
           </section>
+
+          <section id="calendar-view" class="view">
+            <div id="calendar-viewer" class="calendar-viewer"></div>
+          </section>
+
+          <section id="completed-view" class="view">
+            <div id="completed-list" class="table-list"></div>
+          </section>
         </section>
       </section>
     </main>
+
+    <dialog id="preview-dialog" class="preview-dialog">
+      <div class="panel-heading">
+        <h2>Sample data preview</h2>
+        <button id="close-preview" type="button" class="ghost">Close</button>
+      </div>
+      <p class="meta">This is only a preview. It does not change your saved tracker data.</p>
+      <div id="preview-board" class="preview-board"></div>
+    </dialog>
 
     <template id="empty-state">
       <div class="empty">
@@ -218,6 +232,8 @@
       </div>
     </template>
 
-    <script src="app.js?v=import-export-2"></script>
+    <datalist id="people-suggestions"></datalist>
+
+    <script src="app.js?v=recovery-20260613"></script>
   </body>
 </html>
