@@ -378,7 +378,7 @@ details summary {
   cursor: pointer;
   display: flex;
   gap: 0.75rem;
-  justify-content: space-between;
+  justify-content: flex-start;
   list-style: none;
 }
 
