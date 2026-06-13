@@ -256,13 +256,15 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  // Calendar day selection (toggle)
-  const cell = event.target.closest("[data-cal-date]");
-  if (cell) {
-    const d = cell.dataset.calDate;
-    selectedCalendarDate = selectedCalendarDate === d ? null : d;
-    renderCalendar();
-    return;
+  // Calendar day selection (toggle) — skip if clicking a draggable task banner
+  if (!event.target.closest(".calendar-task-name[draggable='true']")) {
+    const cell = event.target.closest("[data-cal-date]");
+    if (cell) {
+      const d = cell.dataset.calDate;
+      selectedCalendarDate = selectedCalendarDate === d ? null : d;
+      renderCalendar();
+      return;
+    }
   }
 
   const action = event.target.dataset.action;
