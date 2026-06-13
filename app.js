@@ -519,17 +519,28 @@ function renderMetrics() {
   els.metricHours.textContent = `${state.workstreams.reduce((sum, ws) => activeWorkstreamIds.has(ws.id) ? sum + Number(ws.effort) : sum, 0)}h`;
 }
 
+function completedDateSGT(task) {
+  if (!task.completedAt) return "";
+  if (task.completedAt.length === 10) return task.completedAt;
+  return new Date(task.completedAt).toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" });
+}
+
+let productivityInited = false;
+
 function initProductivitySelects() {
   if (!els.productivityMonth || !els.productivityYear) return;
+  if (productivityInited) return;
+  productivityInited = true;
+
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   els.productivityMonth.innerHTML = months.map((m, i) => `<option value="${i}">${m}</option>`).join("");
 
-  const completedDates = state.tasks.filter((t) => t.completedAt).map((t) => t.completedAt.slice(0, 4));
+  const completedYears = state.tasks.filter((t) => t.completedAt).map((t) => parseInt(completedDateSGT(t).slice(0, 4), 10));
   const currentYear = parseInt(new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Singapore", year: "numeric" }), 10);
-  const years = new Set(completedDates.map(Number));
+  const years = new Set(completedYears);
   years.add(currentYear);
   years.add(currentYear - 1);
-  const sorted = [...years].sort();
+  const sorted = [...years].filter(Boolean).sort();
   els.productivityYear.innerHTML = sorted.map((y) => `<option value="${y}">${y}</option>`).join("");
 
   const nowMonth = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Singapore", month: "2-digit" });
@@ -550,7 +561,7 @@ function renderProductivity() {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const d = new Date(year, month, day);
     const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
-    const count = state.tasks.filter((t) => t.completedAt && t.completedAt.slice(0, 10) === dateStr).length;
+    const count = state.tasks.filter((t) => t.completedAt && completedDateSGT(t) === dateStr).length;
     const isToday = dateStr === today();
     allCounts.push({ dateStr, label, count, isToday });
   }
