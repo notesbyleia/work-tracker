@@ -91,19 +91,8 @@ async function init() {
     migrateState();
     render();
   } catch (err) {
-    showStartupError(err);
+    console.error("Startup error:", err);
   }
-}
-
-function showStartupError(err) {
-  const banner = document.createElement("div");
-  banner.style.cssText =
-    "position:fixed;top:0;left:0;right:0;z-index:9999;background:#c0392b;color:#fff;" +
-    "padding:12px 16px;font:14px/1.4 system-ui,sans-serif;white-space:pre-wrap;";
-  banner.textContent = "Startup error: " + (err && err.message ? err.message : String(err)) +
-    "\n" + (err && err.stack ? err.stack.split("\n").slice(0, 3).join("\n") : "");
-  document.body.prepend(banner);
-  console.error("Startup error:", err);
 }
 
 function addSignOutButton() {
@@ -260,15 +249,18 @@ document.addEventListener("click", (event) => {
   const portfolio = state.portfolios.find((p) => p.id === id);
   if (portfolio && action === "edit-portfolio")        return editEntity(portfolio);
   if (portfolio && action === "cancel-portfolio-edit") return cancelEdit(portfolio);
+  if (portfolio && action === "delete-portfolio")      return deletePortfolio(portfolio);
 
   const workstream = state.workstreams.find((w) => w.id === id);
   if (workstream && action === "edit-workstream")        return editEntity(workstream);
   if (workstream && action === "cancel-workstream-edit") return cancelEdit(workstream);
+  if (workstream && action === "delete-workstream")      return deleteWorkstream(workstream);
 
   const task = state.tasks.find((t) => t.id === id);
   if (!task) return;
   if (action === "edit-task")        return editEntity(task);
   if (action === "cancel-task-edit") return cancelEdit(task);
+  if (action === "delete-task")      return deleteTask(task);
   if (action === "waiting")  updateTaskStatus(task, "waiting");
   if (action === "chase")    updateTaskStatus(task, "chased");
   if (action === "receive")  updateTaskStatus(task, "received");
@@ -469,6 +461,7 @@ function renderPortfolioBoard() {
         <div class="group-heading">
           <h2>${portfolioNameMarkup(portfolio)}</h2>
           <button data-action="edit-portfolio" data-id="${portfolio.id}">Edit</button>
+          <button data-action="delete-portfolio" data-id="${portfolio.id}" class="ghost">Delete</button>
         </div>
         <div class="board">${workstreams.length
           ? workstreams.map(workstreamGroupMarkup).join("")
@@ -499,6 +492,7 @@ function workstreamGroupMarkup(workstream) {
       </div>
       <div class="actions">
         <button data-action="edit-workstream" data-id="${workstream.id}">Edit</button>
+        <button data-action="delete-workstream" data-id="${workstream.id}" class="ghost">Delete</button>
       </div>
       <div class="nested-list">${tasks.length
         ? tasks.map(taskMarkup).join("")
@@ -626,6 +620,7 @@ function taskMarkup(task) {
         ${task.inputs.length ? `<button data-action="chase" data-id="${task.id}">Chased today</button>` : ""}
         <button data-action="receive"  data-id="${task.id}">Inputs received</button>
         <button data-action="complete" data-id="${task.id}">Completed</button>
+        <button data-action="delete-task" data-id="${task.id}" class="ghost">Delete</button>
       </div>
     </article>`;
 }
@@ -828,6 +823,55 @@ function collectInputs(form) {
 
 function editEntity(entity) { entity.editing = true; saveState(); render(); }
 function cancelEdit(entity) { delete entity.editing; saveState(); render(); }
+
+function deletePortfolio(portfolio) {
+  const workstreams = state.workstreams.filter((w) => w.portfolioId === portfolio.id);
+  const wsIds = new Set(workstreams.map((w) => w.id));
+  const tasks = state.tasks.filter((t) => wsIds.has(t.workstreamId));
+
+  // Ask each time, with detail about what will be removed.
+  let message;
+  if (workstreams.length === 0) {
+    message = `Delete portfolio "${portfolio.name}"?`;
+  } else {
+    message =
+      `Delete portfolio "${portfolio.name}" and everything under it?\n\n` +
+      `This will also delete ${workstreams.length} workstream${workstreams.length === 1 ? "" : "s"} ` +
+      `and ${tasks.length} task${tasks.length === 1 ? "" : "s"}.`;
+  }
+  if (!confirm(message)) return;
+
+  state.tasks       = state.tasks.filter((t) => !wsIds.has(t.workstreamId));
+  state.workstreams = state.workstreams.filter((w) => w.portfolioId !== portfolio.id);
+  state.portfolios  = state.portfolios.filter((p) => p.id !== portfolio.id);
+  saveState();
+  render();
+}
+
+function deleteWorkstream(workstream) {
+  const tasks = state.tasks.filter((t) => t.workstreamId === workstream.id);
+  let message;
+  if (tasks.length === 0) {
+    message = `Delete workstream "${workstream.name}"?`;
+  } else {
+    message =
+      `Delete workstream "${workstream.name}" and everything under it?\n\n` +
+      `This will also delete ${tasks.length} task${tasks.length === 1 ? "" : "s"}.`;
+  }
+  if (!confirm(message)) return;
+
+  state.tasks       = state.tasks.filter((t) => t.workstreamId !== workstream.id);
+  state.workstreams = state.workstreams.filter((w) => w.id !== workstream.id);
+  saveState();
+  render();
+}
+
+function deleteTask(task) {
+  if (!confirm(`Delete task "${task.title}"?`)) return;
+  state.tasks = state.tasks.filter((t) => t.id !== task.id);
+  saveState();
+  render();
+}
 
 function updateTaskStatus(task, newStatus) {
   if (newStatus === "chased") {
