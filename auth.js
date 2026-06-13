@@ -8,6 +8,8 @@ const { createClient } = window.supabase;
 const cfg = window.SUPABASE_CONFIG || {};
 const LOCAL_KEY = "work-tracker-v2";          // matches app.js STORAGE_KEY
 const MIGRATED_FLAG = "work-tracker-migrated";
+const SYNC_PREF_KEY = "work-tracker.sync-preference";
+const LOCAL_ONLY = "local-only";
 
 if (!cfg.url || cfg.url.includes("YOUR-PROJECT")) {
   document.body.innerHTML =
@@ -45,6 +47,7 @@ function renderAuthGate(message = "") {
         <button type="submit" data-mode="signin">Log in</button>
         <button type="submit" data-mode="signup" class="secondary">Sign up</button>
       </div>
+      <button type="button" id="skip-sync" class="secondary">Continue without sync</button>
       <p id="auth-message" class="auth-message">${message}</p>
     </form>`;
   document.body.append(gate);
@@ -55,8 +58,15 @@ function renderAuthGate(message = "") {
     btn.addEventListener("click", () => { mode = btn.dataset.mode; });
   });
 
+  form.querySelector("#skip-sync").addEventListener("click", async () => {
+    localStorage.setItem(SYNC_PREF_KEY, LOCAL_ONLY);
+    setMessage("Using this device only…");
+    await bootLocalOnly();
+  });
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    localStorage.removeItem(SYNC_PREF_KEY);
     const { email, password } = Object.fromEntries(new FormData(form));
     setMessage(mode === "signup" ? "Creating account…" : "Logging in…");
 
@@ -201,6 +211,14 @@ async function bootOnce(session) {
   await bootApp(session);
 }
 
+async function bootLocalOnly() {
+  if (booted) return;
+  booted = true;
+  window.WorkTrackerCloud = null;
+  hideAuthGate();
+  document.dispatchEvent(new CustomEvent("work-tracker-cloud-ready"));
+}
+
 client.auth.onAuthStateChange((event, session) => {
   if (event === "SIGNED_OUT") {
     booted = false;
@@ -213,6 +231,11 @@ client.auth.onAuthStateChange((event, session) => {
 
 // Initial check on page load.
 (async () => {
+  if (localStorage.getItem(SYNC_PREF_KEY) === LOCAL_ONLY) {
+    await bootLocalOnly();
+    return;
+  }
+
   const { data } = await client.auth.getSession();
   if (data.session) {
     await bootOnce(data.session);
