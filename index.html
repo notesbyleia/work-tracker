@@ -45,6 +45,43 @@
       }
       .auth-actions button.secondary { background: #eee; }
       .auth-message { min-height: 1.2em; margin: 0.3rem 0 0; font-size: 0.85rem; color: #c0392b; }
+
+      /* Calendar month grid */
+      .cal-header {
+        display: flex; align-items: center; gap: 0.5rem;
+        margin-bottom: 0.75rem; flex-wrap: wrap;
+      }
+      .cal-header .cal-month { font-size: 1.1rem; min-width: 8.5rem; text-align: center; }
+      .cal-header button {
+        border: none; background: #eee; border-radius: 8px;
+        padding: 0.4rem 0.8rem; font-size: 1.1rem; cursor: pointer; line-height: 1;
+      }
+      .cal-header .cal-today-btn { margin-left: auto; font-size: 0.85rem; }
+      .cal-grid {
+        display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+      }
+      .cal-weekday {
+        text-align: center; font-size: 0.7rem; font-weight: 600;
+        color: #888; padding: 0.25rem 0; text-transform: uppercase;
+      }
+      .cal-cell {
+        aspect-ratio: 1 / 1; border-radius: 8px; background: #fff;
+        border: 1px solid #eee; padding: 0.25rem; position: relative;
+        display: flex; flex-direction: column; align-items: center;
+        cursor: pointer; min-height: 38px;
+      }
+      .cal-cell.cal-blank { background: transparent; border: none; cursor: default; }
+      .cal-daynum { font-size: 0.8rem; color: #333; }
+      .cal-cell.cal-today { border-color: #2f6f5e; border-width: 2px; }
+      .cal-cell.cal-today .cal-daynum { font-weight: 700; color: #2f6f5e; }
+      .cal-cell.cal-selected { background: #d9efe7; border-color: #2f6f5e; }
+      .cal-cell.cal-has-tasks { background: #f3f9f6; }
+      .cal-dots { display: flex; align-items: center; gap: 2px; margin-top: 2px; }
+      .cal-dot { width: 6px; height: 6px; border-radius: 50%; background: #2f6f5e; display: inline-block; }
+      .cal-dot.overdue { background: #c0392b; }
+      .cal-count { font-size: 0.65rem; color: #555; }
+      .cal-detail { margin-top: 1rem; }
+      .cal-detail h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
     </style>
   </head>
   <body>
@@ -278,10 +315,10 @@
     <!-- Supabase client library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Your project config (fill in supabase-config.js) -->
-    <script src="supabase-config.js?v=cloud-11"></script>
+    <script src="supabase-config.js?v=cloud-12"></script>
     <!-- Auth gate + cloud sync -->
-    <script src="auth.js?v=cloud-11"></script>
+    <script src="auth.js?v=cloud-12"></script>
     <!-- App logic -->
-    <script src="app.js?v=cloud-11"></script>
+    <script src="app.js?v=cloud-12"></script>
   </body>
 </html>
