@@ -140,11 +140,30 @@ main {
   margin-bottom: 1rem;
 }
 
-.productivity-controls {
+.productivity-filters {
   align-items: center;
   display: flex;
-  gap: 0.35rem;
+  gap: 0.5rem;
   margin-left: auto;
+}
+
+.productivity-filters select {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  min-width: 0;
+}
+
+.productivity-slider-row {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.productivity-slider {
+  flex: 1;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .productivity-chart {

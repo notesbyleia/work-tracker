@@ -40,7 +40,6 @@ let previewMode = false;
 let prePreviewState = null;
 let calendarMonth = startOfMonth(new Date());   // first day of the month shown in Calendar
 let selectedCalendarDate = null;                 // YYYY-MM-DD the user tapped, if any
-let productivityOffset = 0;                      // scroll offset in days (negative = past)
 
 // ─── DOM refs ────────────────────────────────────────────────────────────────
 // Only reference elements that actually exist in index.html
@@ -77,9 +76,10 @@ const els = {
   productivityChart:   document.querySelector("#productivity-chart"),
   productivityTotal:   document.querySelector("#productivity-total"),
   productivityRange:   document.querySelector("#productivity-range"),
-  productivityPrev:    document.querySelector("#productivity-prev"),
-  productivityNext:    document.querySelector("#productivity-next"),
+  productivityMonth:   document.querySelector("#productivity-month"),
+  productivityYear:    document.querySelector("#productivity-year"),
   productivityToday:   document.querySelector("#productivity-today"),
+  productivitySlider:  document.querySelector("#productivity-slider"),
   // Metrics
   metricChase:         document.querySelector("#metric-chase"),
   metricRisk:          document.querySelector("#metric-risk"),
@@ -252,9 +252,18 @@ els.tabs.forEach((tab) => {
   });
 });
 
-if (els.productivityPrev) els.productivityPrev.addEventListener("click", () => { productivityOffset -= 28; renderProductivity(); });
-if (els.productivityNext) els.productivityNext.addEventListener("click", () => { productivityOffset += 28; renderProductivity(); });
-if (els.productivityToday) els.productivityToday.addEventListener("click", () => { productivityOffset = 0; renderProductivity(); });
+if (els.productivityMonth) els.productivityMonth.addEventListener("change", () => renderProductivity());
+if (els.productivityYear) els.productivityYear.addEventListener("change", () => renderProductivity());
+if (els.productivityToday) els.productivityToday.addEventListener("click", () => {
+  const now = new Date();
+  const m = now.toLocaleDateString("en-CA", { timeZone: "Asia/Singapore", month: "2-digit" });
+  const y = now.toLocaleDateString("en-CA", { timeZone: "Asia/Singapore", year: "numeric" });
+  if (els.productivityMonth) els.productivityMonth.value = String(parseInt(m, 10) - 1);
+  if (els.productivityYear) els.productivityYear.value = y;
+  if (els.productivitySlider) els.productivitySlider.value = els.productivitySlider.max;
+  renderProductivity();
+});
+if (els.productivitySlider) els.productivitySlider.addEventListener("input", () => renderProductivity());
 
 document.addEventListener("click", (event) => {
   // Calendar month navigation
@@ -510,28 +519,61 @@ function renderMetrics() {
   els.metricHours.textContent = `${state.workstreams.reduce((sum, ws) => activeWorkstreamIds.has(ws.id) ? sum + Number(ws.effort) : sum, 0)}h`;
 }
 
+function initProductivitySelects() {
+  if (!els.productivityMonth || !els.productivityYear) return;
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  els.productivityMonth.innerHTML = months.map((m, i) => `<option value="${i}">${m}</option>`).join("");
+
+  const completedDates = state.tasks.filter((t) => t.completedAt).map((t) => t.completedAt.slice(0, 4));
+  const currentYear = parseInt(new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Singapore", year: "numeric" }), 10);
+  const years = new Set(completedDates.map(Number));
+  years.add(currentYear);
+  years.add(currentYear - 1);
+  const sorted = [...years].sort();
+  els.productivityYear.innerHTML = sorted.map((y) => `<option value="${y}">${y}</option>`).join("");
+
+  const nowMonth = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Singapore", month: "2-digit" });
+  els.productivityMonth.value = String(parseInt(nowMonth, 10) - 1);
+  els.productivityYear.value = String(currentYear);
+}
+
 function renderProductivity() {
   if (!els.productivityChart) return;
-  const days = 28;
-  const counts = [];
-  const todayDate = new Date();
-  const endDate = new Date(todayDate);
-  endDate.setDate(endDate.getDate() + productivityOffset);
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(endDate);
-    d.setDate(d.getDate() - i);
-    const dateStr = sgtDateStr(d);
-    const label = d.toLocaleDateString("en-GB", { timeZone: "Asia/Singapore", weekday: "short", day: "numeric" });
+  initProductivitySelects();
+
+  const month = parseInt(els.productivityMonth?.value ?? new Date().getMonth(), 10);
+  const year = parseInt(els.productivityYear?.value ?? new Date().getFullYear(), 10);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const allCounts = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const d = new Date(year, month, day);
+    const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
     const count = state.tasks.filter((t) => t.completedAt && t.completedAt.slice(0, 10) === dateStr).length;
     const isToday = dateStr === today();
-    counts.push({ dateStr, label, count, isToday });
+    allCounts.push({ dateStr, label, count, isToday });
   }
+
+  // Slider controls visible window (7–31 days, ending at slider position)
+  if (els.productivitySlider) {
+    els.productivitySlider.min = "0";
+    els.productivitySlider.max = String(daysInMonth - 1);
+    const sliderVal = Math.min(parseInt(els.productivitySlider.value, 10), daysInMonth - 1);
+    const windowSize = Math.min(14, daysInMonth);
+    const endIdx = Math.max(sliderVal, windowSize - 1);
+    const startIdx = Math.max(0, endIdx - windowSize + 1);
+    var counts = allCounts.slice(startIdx, endIdx + 1);
+    if (els.productivityRange) {
+      els.productivityRange.textContent = `${counts[0].label} – ${counts[counts.length - 1].label}`;
+    }
+  } else {
+    var counts = allCounts;
+  }
+
   const max = Math.max(1, ...counts.map((c) => c.count));
-  const total = counts.reduce((s, c) => s + c.count, 0);
-  const rangeStart = counts[0].label;
-  const rangeEnd = counts[counts.length - 1].label;
-  if (els.productivityRange) els.productivityRange.textContent = `${rangeStart} – ${rangeEnd}`;
-  els.productivityTotal.textContent = `${total} completed in this period`;
+  const monthTotal = allCounts.reduce((s, c) => s + c.count, 0);
+  els.productivityTotal.textContent = `${monthTotal} completed this month`;
   els.productivityChart.innerHTML = counts.map((c) => `
     <div class="productivity-bar-group${c.isToday ? " productivity-today" : ""}">
       <div class="productivity-bar-wrapper">
