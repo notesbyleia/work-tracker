@@ -657,9 +657,9 @@ function renderPeople() {
 function renderCalendar() {
   if (!els.calendarViewer) return;
 
-  // Map open task deadlines to their dates.
+  // Map all task deadlines to their dates.
   const byDate = new Map();
-  openTasks().forEach((t) => {
+  state.tasks.forEach((t) => {
     if (!t.dueDate) return;
     if (!byDate.has(t.dueDate)) byDate.set(t.dueDate, []);
     byDate.get(t.dueDate).push(t);
