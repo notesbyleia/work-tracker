@@ -3,6 +3,7 @@ const LEGACY_STORAGE_KEY = "reply-radar-v1";
 const DAY = 24 * 60 * 60 * 1000;
 const TASK_STATUSES = ["waiting", "chased", "received", "completed"];
 const INPUT_STATUSES = ["waiting", "chased", "received", "not-needed"];
+const PORTFOLIO_COLORS = ["#1f6f5b", "#7c3aed", "#b45309", "#0f766e", "#be123c", "#2563eb", "#64748b"];
 
 const defaultState = {
   portfolios: [],
@@ -12,22 +13,22 @@ const defaultState = {
 
 const sampleState = {
   portfolios: [
-    { id: "pf-transport", name: "Transport", createdAt: now() },
     { id: "pf-corporate", name: "Corporate", createdAt: now() },
+    { id: "pf-finance", name: "Finance", createdAt: now() },
   ],
   workstreams: [
     {
-      id: "ws-hv",
-      portfolioId: "pf-transport",
-      name: "HV lodgement scheme",
+      id: "ws-planning",
+      portfolioId: "pf-corporate",
+      name: "Quarterly planning",
       deadline: offsetDate(8),
       effort: 4,
       createdAt: now(),
     },
     {
       id: "ws-budget",
-      portfolioId: "pf-corporate",
-      name: "Budget paper",
+      portfolioId: "pf-finance",
+      name: "Budget review",
       deadline: offsetDate(3),
       effort: 2,
       createdAt: now(),
@@ -35,16 +36,16 @@ const sampleState = {
   ],
   tasks: [
     makeTask(
-      "ws-hv",
-      "Provide inputs to MOT's pre-cab paper",
+      "ws-planning",
+      "Draft briefing note",
       offsetDate(2),
       1,
-      "MOT, LTA, Finance",
+      "HR, Finance",
       "chased",
     ),
-    makeTask("ws-hv", "Confirm risk mitigation wording", offsetDate(5), 2, "Legal, Ops", "waiting"),
+    makeTask("ws-planning", "Review timeline assumptions", offsetDate(5), 2, "", "received"),
     makeTask("ws-budget", "Consolidate headcount assumptions", offsetDate(0), 0, "HR, Finance", "received"),
-    makeTask("ws-budget", "Send final clearance note", offsetDate(-2), 0, "Director", "completed"),
+    makeTask("ws-budget", "Send final clearance note", offsetDate(-2), 0, "", "completed"),
   ],
 };
 
@@ -124,11 +125,14 @@ els.taskForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(event.currentTarget));
   if (!taskDeadlineIsValid(data.workstreamId, data.dueDate)) return;
-  state.tasks.push(makeTask(data.workstreamId, data.title, data.dueDate, Number(data.expectedDelay), data.inputs, data.status));
+  state.tasks.push(makeTask(data.workstreamId, data.title, data.dueDate, Number(data.expectedDelay), data.noInputs ? "" : data.inputs, data.status));
   event.currentTarget.reset();
+  syncNoInputsField();
   saveState();
   render();
 });
+
+els.taskForm.elements.noInputs.addEventListener("change", syncNoInputsField);
 
 els.tabs.forEach((tab) => {
   tab.addEventListener("click", () => {
@@ -205,6 +209,14 @@ document.addEventListener("submit", (event) => {
     saveState();
     render();
   }
+});
+
+document.addEventListener("change", (event) => {
+  if (!event.target.matches(".edit-task-form [name='noInputs']")) return;
+  const form = event.target.closest(".edit-task-form");
+  const newInputs = form.elements.newInputs;
+  newInputs.disabled = event.target.checked;
+  if (event.target.checked) newInputs.value = "";
 });
 
 document.addEventListener("dragstart", (event) => {
@@ -287,7 +299,10 @@ function renderSelect(select, items, emptyLabel, labelFn = (item) => item.name) 
     select.append(new Option(emptyLabel, ""));
     return;
   }
-  items.forEach((item) => select.append(new Option(labelFn(item), item.id)));
+  items
+    .slice()
+    .sort((a, b) => labelFn(a).localeCompare(labelFn(b)))
+    .forEach((item) => select.append(new Option(labelFn(item), item.id)));
 }
 
 function renderMetrics() {
@@ -313,13 +328,13 @@ function renderPriorityQueue() {
 }
 
 function renderPortfolioBoard() {
-  const items = state.portfolios.map((portfolio) => {
+  const items = sortedPortfolios().map((portfolio) => {
     if (portfolio.editing) return editPortfolioMarkup(portfolio);
     const workstreams = state.workstreams.filter((workstream) => workstream.portfolioId === portfolio.id);
     return `
       <section class="group">
         <div class="group-heading">
-          <h2>${escapeHtml(portfolio.name)}</h2>
+          <h2>${portfolioNameMarkup(portfolio)}</h2>
           <button data-action="edit-portfolio" data-id="${portfolio.id}">Edit</button>
         </div>
         <div class="board">
@@ -416,26 +431,27 @@ function taskMarkup(task) {
   const workstream = findWorkstream(task.workstreamId);
   const portfolio = workstream ? findPortfolio(workstream.portfolioId) : null;
   const level = riskLevel(task);
+  const inputCountLabel = task.inputs.length ? `${task.inputs.length} inputs` : "with me";
   return `
     <article class="task-card request-card risk-${level}" draggable="true" data-id="${task.id}">
       <div class="card-title">
         <strong>${escapeHtml(task.title)}</strong>
         ${riskPill(level)}
       </div>
-      <p class="meta">${escapeHtml(portfolio?.name || "No portfolio")} > ${escapeHtml(workstream?.name || "No workstream")} · due ${formatDate(task.dueDate)} · likely ${formatDate(expectedReturn(task))}</p>
+      <p class="meta">${portfolioPathMarkup(portfolio, workstream)} · due ${formatDate(task.dueDate)} · likely ${formatDate(expectedReturn(task))}</p>
       <div class="input-list">
-        ${task.inputs.map(inputSummaryMarkup).join("")}
+        ${task.inputs.length ? task.inputs.map(inputSummaryMarkup).join("") : noInputsMarkup()}
       </div>
       <div class="pill-row">
         <span class="pill ${statusClass(task.status)}">${labelStatus(task.status)}</span>
         <span class="pill">${priorityLabel(task)}</span>
-        <span class="pill">${task.inputs.length} inputs</span>
+        <span class="pill">${inputCountLabel}</span>
         <span class="pill">${totalChases(task)} chases</span>
       </div>
       <div class="actions">
         <button data-action="edit-task" data-id="${task.id}">Edit</button>
         <button data-action="waiting" data-id="${task.id}">Waiting</button>
-        <button data-action="chase" data-id="${task.id}">Chased today</button>
+        ${task.inputs.length ? `<button data-action="chase" data-id="${task.id}">Chased today</button>` : ""}
         <button data-action="receive" data-id="${task.id}">Received</button>
         <button data-action="complete" data-id="${task.id}">Completed</button>
       </div>
@@ -454,7 +470,7 @@ function priorityItemMarkup(task, rank) {
           <strong>${escapeHtml(task.title)}</strong>
           ${riskPill(riskLevel(task))}
         </div>
-        <p class="meta">${escapeHtml(portfolio?.name || "No portfolio")} > ${escapeHtml(workstream?.name || "No workstream")} · task due ${formatDate(task.dueDate)} · workstream due ${formatDate(workstream?.deadline)}</p>
+        <p class="meta">${portfolioPathMarkup(portfolio, workstream)} · task due ${formatDate(task.dueDate)} · workstream due ${formatDate(workstream?.deadline)}</p>
         <p class="meta">${escapeHtml(priorityReason(task))}</p>
       </div>
     </article>
@@ -462,7 +478,7 @@ function priorityItemMarkup(task, rank) {
 }
 
 function inputSummaryMarkup(input) {
-  const lastChased = input.lastChasedAt ? ` · last ${formatDate(input.lastChasedAt)}` : "";
+  const lastChased = Number(input.chaseCount || 0) > 0 && input.lastChasedAt ? ` · last ${formatDate(input.lastChasedAt)}` : "";
   return `
     <div class="input-row">
       <strong>${escapeHtml(input.name)}</strong>
@@ -473,6 +489,7 @@ function inputSummaryMarkup(input) {
 }
 
 function editTaskMarkup(task) {
+  const hasNoInputs = task.inputs.length === 0;
   return `
     <article class="task-card request-card editing" data-id="${task.id}">
       <form class="edit-task-form stack" data-id="${task.id}">
@@ -500,11 +517,15 @@ function editTaskMarkup(task) {
         </label>
         <div class="input-edit-list">
           <strong>Inputs needed</strong>
-          ${task.inputs.map(inputEditMarkup).join("")}
+          ${task.inputs.length ? task.inputs.map(inputEditMarkup).join("") : noInputsMarkup()}
         </div>
         <label>
           Add people/agencies
-          <input name="newInputs" placeholder="Comma-separated, e.g. MOT, LTA, Finance" />
+          <input name="newInputs" placeholder="Optional, comma-separated, e.g. HR, Finance" ${hasNoInputs ? "disabled" : ""} />
+        </label>
+        <label class="checkbox-row">
+          <input name="noInputs" type="checkbox" ${hasNoInputs ? "checked" : ""} />
+          <span>No external inputs needed; this task is with me</span>
         </label>
         <div class="actions">
           <button type="submit">Save</button>
@@ -516,6 +537,7 @@ function editTaskMarkup(task) {
 }
 
 function inputEditMarkup(input) {
+  const chaseCount = Number(input.chaseCount || 0);
   return `
     <div class="input-edit-row">
       <input type="hidden" name="inputId" value="${input.id}" />
@@ -529,11 +551,11 @@ function inputEditMarkup(input) {
       </label>
       <label>
         Chases
-        <input name="inputChaseCount" type="number" min="0" step="1" value="${Number(input.chaseCount || 0)}" />
+        <input name="inputChaseCount" type="number" min="0" step="1" value="${chaseCount}" />
       </label>
       <label>
         Last chase
-        <input name="inputLastChasedAt" type="date" value="${escapeHtml(input.lastChasedAt || "")}" />
+        <input name="inputLastChasedAt" type="date" value="${chaseCount > 0 ? escapeHtml(input.lastChasedAt || "") : ""}" />
       </label>
     </div>
   `;
@@ -588,6 +610,8 @@ function editWorkstreamMarkup(workstream) {
 }
 
 function collectInputs(form) {
+  if (form.elements.noInputs?.checked) return [];
+
   const ids = form.querySelectorAll("[name='inputId']");
   const names = form.querySelectorAll("[name='inputName']");
   const statuses = form.querySelectorAll("[name='inputStatus']");
@@ -598,12 +622,13 @@ function collectInputs(form) {
   ids.forEach((field, index) => {
     const name = names[index].value.trim();
     if (!name) return;
+    const chaseCount = Math.max(0, Number(chaseCounts[index].value || 0));
     inputs.push({
       id: field.value || crypto.randomUUID(),
       name,
       status: statuses[index].value,
-      chaseCount: Math.max(0, Number(chaseCounts[index].value || 0)),
-      lastChasedAt: lastChasedDates[index].value,
+      chaseCount,
+      lastChasedAt: chaseCount > 0 ? lastChasedDates[index].value : "",
       receivedAt: statuses[index].value === "received" ? today() : "",
     });
   });
@@ -625,6 +650,7 @@ function cancelEdit(entity) {
 
 function updateTaskStatus(task, status) {
   const previousStatus = task.status;
+  if (status === "chased" && task.inputs.length === 0) status = "received";
   task.status = status;
   if (status === "chased" && previousStatus !== "chased") {
     task.inputs
@@ -655,17 +681,19 @@ function taskDeadlineIsValid(workstreamId, taskDeadline) {
 }
 
 function makeTask(workstreamId, title, dueDate, expectedDelay, inputs, status = "waiting") {
+  const parsedInputs = parseInputNames(inputs);
+  const effectiveStatus = parsedInputs.length === 0 && (status === "waiting" || status === "chased") ? "received" : status;
   return {
     id: crypto.randomUUID(),
     workstreamId,
     title: title.trim(),
     dueDate,
     expectedDelay: Number(expectedDelay),
-    status,
+    status: effectiveStatus,
     requestedAt: today(),
-    receivedAt: status === "received" ? today() : "",
-    completedAt: status === "completed" ? today() : "",
-    inputs: parseInputNames(inputs).map((name) => makeInput(name, status === "chased" ? "chased" : "waiting")),
+    receivedAt: effectiveStatus === "received" ? today() : "",
+    completedAt: effectiveStatus === "completed" ? today() : "",
+    inputs: parsedInputs.map((name) => makeInput(name, effectiveStatus === "chased" ? "chased" : "waiting")),
   };
 }
 
@@ -703,6 +731,7 @@ function migrateState() {
       if (!INPUT_STATUSES.includes(input.status)) input.status = "waiting";
       input.chaseCount = Number(input.chaseCount || 0);
       input.lastChasedAt ||= "";
+      if (input.chaseCount === 0) input.lastChasedAt = "";
       input.receivedAt ||= "";
     });
   });
@@ -741,7 +770,7 @@ function migrateLegacyState(legacy) {
     requestedAt: request.requestedAt || today(),
     receivedAt: request.receivedAt || "",
     completedAt: request.completedAt || "",
-    inputs: [makeInput(request.person || "Unknown", request.status === "chased" ? "chased" : "waiting")],
+    inputs: request.person ? [makeInput(request.person, request.status === "chased" ? "chased" : "waiting")] : [],
   }));
   return { portfolios: [portfolio], workstreams, tasks };
 }
@@ -769,6 +798,10 @@ function findWorkstream(id) {
 function workstreamLabel(workstream) {
   const portfolio = findPortfolio(workstream.portfolioId);
   return `${portfolio?.name || "No portfolio"} > ${workstream.name}`;
+}
+
+function sortedPortfolios() {
+  return state.portfolios.slice().sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function byUrgency(a, b) {
@@ -820,6 +853,7 @@ function priorityScore(task) {
   if (workstream && dateValue(expectedReturn(task)) > dateValue(workstream.deadline)) score += 30;
   score += Math.min(totalChases(task) * 4, 20);
   score += task.inputs.filter((input) => input.status === "waiting" || input.status === "chased").length * 3;
+  if (task.inputs.length === 0 && task.status === "received") score += 12;
   return score;
 }
 
@@ -859,6 +893,10 @@ function totalChases(task) {
   return task.inputs.reduce((total, input) => total + Number(input.chaseCount || 0), 0);
 }
 
+function noInputsMarkup() {
+  return `<div class="input-row muted-row"><strong>With me</strong><span class="meta">No external inputs needed</span></div>`;
+}
+
 function riskPill(level) {
   const label = level === "high" ? "At risk" : level === "medium" ? "Watch" : "Stable";
   const color = level === "high" ? "red" : level === "medium" ? "amber" : "green";
@@ -890,13 +928,41 @@ function labelInputStatus(status) {
 }
 
 function portfolioOptionsMarkup(selectedId) {
-  return state.portfolios
+  return sortedPortfolios()
     .map((portfolio) => `<option value="${portfolio.id}" ${portfolio.id === selectedId ? "selected" : ""}>${escapeHtml(portfolio.name)}</option>`)
     .join("");
 }
 
+function portfolioPathMarkup(portfolio, workstream) {
+  const portfolioName = portfolio?.name || "No portfolio";
+  return `${portfolio ? portfolioDotMarkup(portfolio) : ""}${escapeHtml(portfolioName)} > ${escapeHtml(workstream?.name || "No workstream")}`;
+}
+
+function portfolioNameMarkup(portfolio) {
+  return `${portfolioDotMarkup(portfolio)}${escapeHtml(portfolio.name)}`;
+}
+
+function portfolioDotMarkup(portfolio) {
+  return `<span class="portfolio-dot" style="--portfolio-color: ${portfolioColor(portfolio)}"></span>`;
+}
+
+function portfolioColor(portfolio) {
+  const key = `${portfolio?.id || ""}${portfolio?.name || ""}`;
+  let hash = 0;
+  for (let index = 0; index < key.length; index += 1) hash = (hash + key.charCodeAt(index) * (index + 1)) % PORTFOLIO_COLORS.length;
+  return PORTFOLIO_COLORS[hash];
+}
+
+function syncNoInputsField() {
+  const noInputs = els.taskForm.elements.noInputs.checked;
+  els.taskForm.elements.inputs.disabled = noInputs;
+  if (noInputs) els.taskForm.elements.inputs.value = "";
+}
+
 function workstreamOptionsMarkup(selectedId) {
   return state.workstreams
+    .slice()
+    .sort((a, b) => workstreamLabel(a).localeCompare(workstreamLabel(b)))
     .map((workstream) => `<option value="${workstream.id}" ${workstream.id === selectedId ? "selected" : ""}>${escapeHtml(workstreamLabel(workstream))}</option>`)
     .join("");
 }
