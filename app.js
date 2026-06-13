@@ -1230,13 +1230,11 @@ function byCompleted(a, b) {
 function priorityScore(task) {
   const days  = daysUntil(task.dueDate);
   const delay = Number(task.expectedDelay) || 0;
-  const ws    = findWorkstream(task.workstreamId);
-  const wsDays = ws ? daysUntil(ws.deadline) : 999;
   let score = 0;
   if (days < 0)  score += 100;
   if (days < 3)  score += 50;
   if (days < 7)  score += 20;
-  score += Math.max(0, 30 - wsDays);
+  score += Math.max(0, 30 - days);
   score += delay * 2;
   return score;
 }
