@@ -110,34 +110,60 @@ let currentUserId = null;
 
 async function cloudLoad() {
   dbg(`cloudLoad: querying for user ${currentUserId?.slice(0, 8)}…`);
-  const { data, error } = await client
-    .from("tracker_state")
-    .select("data")
-    .eq("user_id", currentUserId)
-    .maybeSingle();
-  if (error) {
-    dbg(`cloudLoad ERROR: ${error.message} (code ${error.code || "?"})`);
-    console.error("cloudLoad", error);
+  try {
+    const query = client
+      .from("tracker_state")
+      .select("data")
+      .eq("user_id", currentUserId)
+      .maybeSingle();
+
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("timed out after 8s")), 8000)
+    );
+
+    const { data, error } = await Promise.race([query, timeout]);
+
+    if (error) {
+      dbg(`cloudLoad ERROR: ${error.message} (code ${error.code || "?"})`);
+      console.error("cloudLoad", error);
+      return null;
+    }
+    if (!data) { dbg("cloudLoad: no row yet (empty)"); return null; }
+    const d = data.data || {};
+    dbg(`cloudLoad OK: ${d.portfolios?.length || 0} portfolios, ${d.tasks?.length || 0} tasks`);
+    return data.data;
+  } catch (err) {
+    dbg(`cloudLoad FAILED: ${err.message}`);
+    console.error("cloudLoad failed", err);
     return null;
   }
-  if (!data) { dbg("cloudLoad: no row yet (empty)"); return null; }
-  const d = data.data || {};
-  dbg(`cloudLoad OK: ${d.portfolios?.length || 0} portfolios, ${d.tasks?.length || 0} tasks`);
-  return data.data;
 }
 
 async function cloudSave(state) {
   const counts = `${state.portfolios?.length || 0}p/${state.workstreams?.length || 0}w/${state.tasks?.length || 0}t`;
   dbg(`cloudSave: writing ${counts} for user ${currentUserId?.slice(0, 8)}…`);
-  const { error } = await client
-    .from("tracker_state")
-    .upsert({ user_id: currentUserId, data: state }, { onConflict: "user_id" });
-  if (error) {
-    dbg(`cloudSave ERROR: ${error.message} (code ${error.code || "?"})`);
-    console.error("cloudSave", error);
-    showCloudError("Save failed: " + error.message);
-  } else {
-    dbg(`cloudSave OK (${counts})`);
+  try {
+    const query = client
+      .from("tracker_state")
+      .upsert({ user_id: currentUserId, data: state }, { onConflict: "user_id" });
+
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("timed out after 8s")), 8000)
+    );
+
+    const { error } = await Promise.race([query, timeout]);
+
+    if (error) {
+      dbg(`cloudSave ERROR: ${error.message} (code ${error.code || "?"})`);
+      console.error("cloudSave", error);
+      showCloudError("Save failed: " + error.message);
+    } else {
+      dbg(`cloudSave OK (${counts})`);
+    }
+  } catch (err) {
+    dbg(`cloudSave FAILED: ${err.message}`);
+    console.error("cloudSave failed", err);
+    showCloudError("Save failed: " + err.message);
   }
 }
 
