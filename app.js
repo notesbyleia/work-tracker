@@ -1304,6 +1304,7 @@ function priorityScore(task) {
   if (days < 7)  score += 20;
   score += Math.max(0, 30 - days);
   score += delay * 2;
+  if (task.status === "with-me" || task.status === "received") score += 15;
   return score;
 }
 

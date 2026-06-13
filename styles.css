@@ -461,7 +461,6 @@ details[open] summary::before {
 
 .summary-main {
   display: grid;
-  flex: 1;
   gap: 0.15rem;
   min-width: 0;
   text-align: left;
