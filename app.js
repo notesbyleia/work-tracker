@@ -111,7 +111,7 @@ function addSignOutButton() {
 // If auth.js is on the page, wait for it to establish a session and set up
 // the cloud API before initialising. Otherwise (no auth), init immediately.
 if (document.querySelector('script[src*="auth.js"]')) {
-  if (window.WorkTrackerCloud) {
+  if (window.WorkTrackerCloud || window.WorkTrackerLocalOnly) {
     init();
   } else {
     document.addEventListener("work-tracker-cloud-ready", init);
@@ -183,11 +183,12 @@ els.taskForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(event.currentTarget));
   if (!taskDeadlineIsValid(data.workstreamId, data.dueDate)) return;
+  const status = data.noInputs ? "with-me" : data.status;
   state.tasks.push(makeTask(
     data.workstreamId, data.title, data.dueDate,
     Number(data.expectedDelay),
     data.noInputs ? "" : data.inputs,
-    data.status,
+    status,
   ));
   event.currentTarget.reset();
   syncNoInputsField();
@@ -469,11 +470,14 @@ function renderDashboard() {
 }
 
 function renderPriorityQueue() {
-  const tasks = state.tasks
-    .filter((t) => t.status !== "completed")
-    .sort(byPriority)
-    .map((t, i) => priorityItemMarkup(t, i + 1));
-  renderHtmlOrEmpty(els.priorityList, tasks);
+  const tasks = openTasks().sort(byPriority);
+  const withMe = tasks.filter((t) => t.status === "with-me" || t.status === "received");
+  const waiting = tasks.filter((t) => t.status === "waiting" || t.status === "chased");
+  const sections = [
+    prioritySectionMarkup("With me", withMe),
+    prioritySectionMarkup("Waiting", waiting, withMe.length),
+  ].filter(Boolean);
+  renderHtmlOrEmpty(els.priorityList, sections);
 }
 
 function renderPortfolioBoard() {
@@ -498,8 +502,8 @@ function renderPortfolioBoard() {
 
 function workstreamGroupMarkup(workstream) {
   if (workstream.editing) return editWorkstreamMarkup(workstream);
-  const tasks     = state.tasks.filter((t) => t.workstreamId === workstream.id).sort(byUrgency);
-  const completed = tasks.filter((t) => t.status === "completed").length;
+  const tasks     = openTasks().filter((t) => t.workstreamId === workstream.id).sort(byUrgency);
+  const completed = state.tasks.filter((t) => t.workstreamId === workstream.id && t.status === "completed").length;
   const late      = tasks.filter((t) => t.status !== "completed" && daysUntil(t.dueDate) < 0).length;
   const level     = workstreamRisk(workstream, tasks);
   return `
@@ -526,12 +530,12 @@ function workstreamGroupMarkup(workstream) {
 }
 
 function renderTasks() {
-  renderHtmlOrEmpty(els.taskList, state.tasks.slice().sort(byUrgency).map(taskMarkup));
+  renderHtmlOrEmpty(els.taskList, openTasks().sort(byUrgency).map(taskMarkup));
 }
 
 function renderPeople() {
   const people = new Map();
-  state.tasks.forEach((task) => {
+  openTasks().forEach((task) => {
     task.inputs.forEach((input) => {
       const key = input.name.toLowerCase();
       if (!people.has(key)) people.set(key, { name: input.name, total: 0, open: 0, overdue: 0, chases: 0, tasks: [] });
@@ -545,6 +549,7 @@ function renderPeople() {
   });
 
   const items = [...people.values()]
+    .filter((p) => p.open > 0)
     .sort((a, b) => b.overdue - a.overdue || b.open - a.open || a.name.localeCompare(b.name))
     .map((p) => `
       <article class="person-card">
@@ -565,9 +570,9 @@ function renderPeople() {
 function renderCalendar() {
   if (!els.calendarViewer) return;
 
-  // Map every task deadline to its date (include completed, shown muted).
+  // Map open task deadlines to their dates.
   const byDate = new Map();
-  state.tasks.forEach((t) => {
+  openTasks().forEach((t) => {
     if (!t.dueDate) return;
     if (!byDate.has(t.dueDate)) byDate.set(t.dueDate, []);
     byDate.get(t.dueDate).push(t);
@@ -585,34 +590,28 @@ function renderCalendar() {
   const todayStr = today();
 
   const weekdayHeaders = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    .map((d) => `<div class="cal-weekday">${d}</div>`).join("");
+    .map((d) => `<div>${d}</div>`).join("");
 
   const cells = [];
-  for (let i = 0; i < leadingBlanks; i++) cells.push(`<div class="cal-cell cal-blank"></div>`);
+  for (let i = 0; i < leadingBlanks; i++) cells.push(`<div class="calendar-day muted-month"></div>`);
 
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const dayTasks = byDate.get(dateStr) || [];
-    const active = dayTasks.filter((t) => t.status !== "completed");
+    const dayTasks = (byDate.get(dateStr) || []).slice().sort(byUrgency);
     const isToday = dateStr === todayStr;
     const isSelected = dateStr === selectedCalendarDate;
-    const hasOverdue = active.some((t) => daysUntil(t.dueDate) < 0);
 
-    let dots = "";
-    if (active.length) {
-      const cls = hasOverdue ? "cal-dot overdue" : "cal-dot";
-      dots = `<div class="cal-dots"><span class="${cls}"></span>${active.length > 1 ? `<span class="cal-count">${active.length}</span>` : ""}</div>`;
-    }
-
-    const classes = ["cal-cell"];
-    if (isToday) classes.push("cal-today");
-    if (isSelected) classes.push("cal-selected");
-    if (active.length) classes.push("cal-has-tasks");
+    const classes = ["calendar-day"];
+    if (isToday) classes.push("today");
+    if (isSelected) classes.push("selected");
+    if (dayTasks.length) classes.push("has-tasks");
 
     cells.push(`
       <div class="${classes.join(" ")}" data-cal-date="${dateStr}">
-        <span class="cal-daynum">${day}</span>
-        ${dots}
+        <span class="calendar-date">${day}</span>
+        <div class="calendar-tasks">
+          ${dayTasks.map(calendarTaskNameMarkup).join("")}
+        </div>
       </div>`);
   }
 
@@ -621,22 +620,22 @@ function renderCalendar() {
   if (selectedCalendarDate) {
     const dayTasks = (byDate.get(selectedCalendarDate) || []).slice().sort(byUrgency);
     detail = `
-      <div class="cal-detail">
+      <div class="calendar-detail">
         <h3>${formatDate(selectedCalendarDate)}</h3>
         ${dayTasks.length ? dayTasks.map(taskMarkup).join("") : emptyMarkup("No tasks due this day.", "")}
       </div>`;
   }
 
   els.calendarViewer.innerHTML = `
-    <div class="cal-header">
+    <div class="calendar-toolbar">
       <button class="ghost" data-cal-nav="prev">‹</button>
-      <strong class="cal-month">${monthLabel}</strong>
+      <strong>${monthLabel}</strong>
       <button class="ghost" data-cal-nav="next">›</button>
-      <button class="secondary cal-today-btn" data-cal-nav="today">Today</button>
+      <button class="secondary" data-cal-nav="today">Today</button>
     </div>
-    <div class="cal-grid">
-      ${weekdayHeaders}
-      ${cells.join("")}
+    <div class="calendar-month">
+      <div class="calendar-weekdays">${weekdayHeaders}</div>
+      <div class="calendar-grid">${cells.join("")}</div>
     </div>
     ${detail}`;
 }
@@ -648,6 +647,15 @@ function renderCompleted() {
 
 function renderCards(container, tasks) {
   renderHtmlOrEmpty(container, tasks.map(taskMarkup));
+}
+
+function prioritySectionMarkup(title, tasks, rankOffset = 0) {
+  if (!tasks.length) return "";
+  return `
+    <section class="priority-section">
+      <h3>${escapeHtml(title)}</h3>
+      ${tasks.map((task, i) => priorityItemMarkup(task, rankOffset + i + 1)).join("")}
+    </section>`;
 }
 
 function renderPeopleSuggestions(filter = "") {
@@ -768,6 +776,10 @@ function priorityItemMarkup(task, rank) {
         <p class="meta">${escapeHtml(priorityReason(task))}</p>
       </div>
     </details>`;
+}
+
+function calendarTaskNameMarkup(task) {
+  return `<span class="calendar-task-name">${escapeHtml(task.title)}</span>`;
 }
 
 function inputSummaryMarkup(input) {
@@ -1002,6 +1014,7 @@ function deleteTask(task) {
 }
 
 function updateTaskStatus(task, newStatus) {
+  if (newStatus !== "completed") delete task.completedAt;
   if (newStatus === "chased") {
     task.inputs.forEach((input) => {
       if (input.status !== "received" && input.status !== "not-needed") {
@@ -1016,15 +1029,26 @@ function updateTaskStatus(task, newStatus) {
       if (input.status !== "received") { input.status = "received"; input.receivedAt = today(); }
     });
   }
+  if (newStatus === "completed") {
+    task.completedAt = task.completedAt || today();
+    task.inputs.forEach((input) => {
+      input.status = input.status === "not-needed" ? "not-needed" : "received";
+      input.receivedAt = input.receivedAt || today();
+    });
+  }
   task.status = newStatus;
 }
 
 function syncNoInputsField() {
   const cb     = els.taskForm.elements.noInputs;
   const inputs = els.taskForm.elements.inputs;
+  const status = els.taskForm.elements.status;
   if (!inputs) return;
   inputs.disabled = cb.checked;
-  if (cb.checked) inputs.value = "";
+  if (cb.checked) {
+    inputs.value = "";
+    if (status) status.value = "with-me";
+  }
 }
 
 function taskDeadlineIsValid(workstreamId, dueDate) {
@@ -1262,6 +1286,10 @@ function totalChases(task) {
 }
 
 // ─── Finders ──────────────────────────────────────────────────────────────────
+
+function openTasks() {
+  return state.tasks.filter((task) => task.status !== "completed");
+}
 
 function findWorkstream(id) { return state.workstreams.find((w) => w.id === id); }
 function findPortfolio(id)  { return state.portfolios.find((p) => p.id === id); }

@@ -209,6 +209,7 @@ async function maybeMigrate() {
 // ─── Boot ─────────────────────────────────────────────────────────────────
 
 async function bootApp(session) {
+  window.WorkTrackerLocalOnly = false;
   currentUserId = session.user.id;
   await maybeMigrate();
 
@@ -240,6 +241,7 @@ async function bootLocalOnly() {
   if (booted) return;
   booted = true;
   window.WorkTrackerCloud = null;
+  window.WorkTrackerLocalOnly = true;
   hideAuthGate();
   addSignInToSyncButton();
   document.dispatchEvent(new CustomEvent("work-tracker-cloud-ready"));
@@ -247,8 +249,10 @@ async function bootLocalOnly() {
 
 client.auth.onAuthStateChange((event, session) => {
   if (event === "SIGNED_OUT") {
+    if (localStorage.getItem(SYNC_PREF_KEY) === LOCAL_ONLY) return;
     booted = false;
     window.WorkTrackerCloud = null;
+    window.WorkTrackerLocalOnly = false;
     removeSignInToSyncButton();
     renderAuthGate("Signed out.");
   }
