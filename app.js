@@ -383,6 +383,9 @@ document.querySelectorAll(".lane[data-lane]").forEach((lane) => {
 // ─── Render ───────────────────────────────────────────────────────────────────
 
 function render() {
+  // If the app's core DOM isn't present (e.g. the login screen is showing),
+  // skip rendering entirely to avoid null-element crashes.
+  if (!els.seedData || !els.portfolioForm || !els.metricChase) return;
   renderPreviewMode();
   renderSelectors();
   renderMetrics();
