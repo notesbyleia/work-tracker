@@ -1012,7 +1012,7 @@ function taskMarkup(task) {
   const level      = riskLevel(task);
   const inputCountLabel = task.inputs.length ? `${task.inputs.length} inputs` : "with me";
   return `
-    <details class="task-card request-card compact-card risk-${level}" draggable="true" data-id="${task.id}">
+    <details class="task-card request-card compact-card risk-${level}" data-id="${task.id}">
       <summary>
         <span class="summary-main">
           <strong>${escapeHtml(task.title)}</strong>
