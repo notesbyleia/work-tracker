@@ -486,7 +486,7 @@ document.addEventListener("drop", (event) => {
 });
 
 document.addEventListener("pointerdown", (event) => {
-  if (event.target.closest("button, input, select, textarea")) return;
+  if (event.target.closest("button, input, select, textarea, summary")) return;
   const card = event.target.closest(".task-card[draggable='true']");
   if (!card) return;
   pointerDragTaskId = card.dataset.id;
@@ -1368,7 +1368,7 @@ function updateTaskStatus(task, newStatus) {
     });
   }
   if (newStatus === "completed") {
-    task.completedAt = task.completedAt || today();
+    task.completedAt = task.completedAt || task.dueDate || today();
     task.inputs.forEach((input) => {
       input.status = input.status === "not-needed" ? "not-needed" : "received";
       input.receivedAt = input.receivedAt || today();
