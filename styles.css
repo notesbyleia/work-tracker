@@ -847,3 +847,117 @@ details[open] summary::before {
     flex-direction: column;
   }
 }
+
+/* Calendar task color coding */
+.cal-task-withme {
+  background: #fde8e8;
+  color: var(--red);
+}
+
+.cal-task-waiting {
+  background: #fff6e8;
+  color: var(--amber);
+}
+
+.cal-task-completed {
+  background: #eaf7f0;
+  color: var(--green);
+}
+
+/* Calendar detail groups */
+.cal-detail-group {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+.cal-detail-group > summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0.6rem 0.75rem;
+}
+
+.cal-detail-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cal-detail-group > summary::before {
+  color: var(--muted);
+  content: "+";
+  font-weight: 900;
+}
+
+.cal-detail-group[open] > summary::before {
+  content: "-";
+}
+
+.cal-detail-group.drag-over {
+  background: #eef7f2;
+  border-color: #b9d8cb;
+}
+
+.cal-detail-tasks {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0 0.75rem 0.75rem;
+}
+
+/* Completed date groups */
+.completed-date-group {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+.completed-date-group > summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0.6rem 0.75rem;
+}
+
+.completed-date-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.completed-date-group > summary::before {
+  color: var(--muted);
+  content: "+";
+  font-weight: 900;
+}
+
+.completed-date-group[open] > summary::before {
+  content: "-";
+}
+
+.completed-date-tasks {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.completed-summary {
+  margin-bottom: 0.5rem;
+}
+
+/* Priority item drag styles */
+.priority-item[draggable="true"] {
+  cursor: grab;
+}
+
+.priority-item.dragging {
+  cursor: grabbing;
+  opacity: 0.55;
+}
+
+.priority-item.drag-over {
+  background: #eef7f2;
+  border-color: #b9d8cb;
+}

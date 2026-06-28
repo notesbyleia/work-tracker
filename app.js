@@ -251,8 +251,8 @@ els.tabs.forEach((tab) => {
   });
 });
 
-if (els.productivityMonth) els.productivityMonth.addEventListener("change", () => renderProductivity());
-if (els.productivityYear) els.productivityYear.addEventListener("change", () => renderProductivity());
+if (els.productivityMonth) els.productivityMonth.addEventListener("change", () => { renderProductivity(); renderCompleted(); });
+if (els.productivityYear) els.productivityYear.addEventListener("change", () => { renderProductivity(); renderCompleted(); });
 if (els.productivityToday) els.productivityToday.addEventListener("click", () => {
   const now = new Date();
   const m = now.toLocaleDateString("en-CA", { timeZone: "Asia/Singapore", month: "2-digit" });
@@ -260,6 +260,7 @@ if (els.productivityToday) els.productivityToday.addEventListener("click", () =>
   if (els.productivityMonth) els.productivityMonth.value = String(parseInt(m, 10) - 1);
   if (els.productivityYear) els.productivityYear.value = y;
   renderProductivity();
+  renderCompleted();
 });
 
 document.addEventListener("click", (event) => {
@@ -376,6 +377,13 @@ document.addEventListener("dragstart", (event) => {
     calTask.classList.add("dragging");
     return;
   }
+  const priorityItem = event.target.closest(".priority-item[draggable='true']");
+  if (priorityItem) {
+    event.dataTransfer.setData("text/plain", priorityItem.dataset.id);
+    event.dataTransfer.effectAllowed = "move";
+    priorityItem.classList.add("dragging");
+    return;
+  }
   const card = event.target.closest(".task-card");
   if (!card) return;
   event.dataTransfer.setData("text/plain", card.dataset.id);
@@ -386,11 +394,30 @@ document.addEventListener("dragstart", (event) => {
 document.addEventListener("dragend", (event) => {
   event.target.closest(".task-card")?.classList.remove("dragging");
   event.target.closest(".calendar-task-name")?.classList.remove("dragging");
+  event.target.closest(".priority-item")?.classList.remove("dragging");
   document.querySelectorAll(".lane.drag-over").forEach((l) => l.classList.remove("drag-over"));
   document.querySelectorAll(".calendar-day.drag-over").forEach((d) => d.classList.remove("drag-over"));
+  document.querySelectorAll(".priority-item.drag-over").forEach((p) => p.classList.remove("drag-over"));
+  document.querySelectorAll(".cal-detail-group.drag-over").forEach((g) => g.classList.remove("drag-over"));
 });
 
 document.addEventListener("dragover", (event) => {
+  const priorityItem = event.target.closest(".priority-item[draggable='true']");
+  if (priorityItem) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    document.querySelectorAll(".priority-item.drag-over").forEach((p) => p.classList.remove("drag-over"));
+    priorityItem.classList.add("drag-over");
+    return;
+  }
+  const calLane = event.target.closest("[data-cal-lane]");
+  if (calLane) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    document.querySelectorAll(".cal-detail-group.drag-over").forEach((g) => g.classList.remove("drag-over"));
+    calLane.classList.add("drag-over");
+    return;
+  }
   const dayCell = event.target.closest(".calendar-day[data-cal-date]");
   if (!dayCell) return;
   event.preventDefault();
@@ -400,11 +427,52 @@ document.addEventListener("dragover", (event) => {
 });
 
 document.addEventListener("dragleave", (event) => {
+  const priorityItem = event.target.closest(".priority-item");
+  if (priorityItem) priorityItem.classList.remove("drag-over");
+  const calLane = event.target.closest("[data-cal-lane]");
+  if (calLane) calLane.classList.remove("drag-over");
   const dayCell = event.target.closest(".calendar-day[data-cal-date]");
   if (dayCell) dayCell.classList.remove("drag-over");
 });
 
 document.addEventListener("drop", (event) => {
+  // Priority item reorder
+  const targetPriority = event.target.closest(".priority-item[draggable='true']");
+  if (targetPriority) {
+    event.preventDefault();
+    targetPriority.classList.remove("drag-over");
+    const draggedId = event.dataTransfer.getData("text/plain");
+    const targetId = targetPriority.dataset.id;
+    if (draggedId === targetId) return;
+    if (!state.priorityOrder || !state.priorityOrder.length) {
+      state.priorityOrder = openTasks().sort(byPriority).map((t) => t.id);
+    }
+    const order = state.priorityOrder.filter((id) => id !== draggedId);
+    const targetIdx = order.indexOf(targetId);
+    if (targetIdx >= 0) order.splice(targetIdx, 0, draggedId);
+    else order.push(draggedId);
+    state.priorityOrder = order;
+    saveState();
+    render();
+    return;
+  }
+  // Calendar detail group status change
+  const calLane = event.target.closest("[data-cal-lane]");
+  if (calLane) {
+    event.preventDefault();
+    calLane.classList.remove("drag-over");
+    const taskId = event.dataTransfer.getData("text/plain");
+    const task = state.tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    const lane = calLane.dataset.calLane;
+    if (lane === "completed") updateTaskStatus(task, "completed");
+    else if (lane === "with-me") updateTaskStatus(task, "with-me");
+    else updateTaskStatus(task, "waiting");
+    saveState();
+    render();
+    return;
+  }
+  // Calendar day deadline change
   const dayCell = event.target.closest(".calendar-day[data-cal-date]");
   if (!dayCell) return;
   event.preventDefault();
@@ -588,7 +656,20 @@ function renderDashboard() {
 }
 
 function renderPriorityQueue() {
-  const tasks = openTasks().sort(byPriority);
+  let tasks = openTasks();
+
+  if (state.priorityOrder && state.priorityOrder.length) {
+    const orderMap = new Map(state.priorityOrder.map((id, i) => [id, i]));
+    tasks.sort((a, b) => {
+      const ai = orderMap.has(a.id) ? orderMap.get(a.id) : 9999;
+      const bi = orderMap.has(b.id) ? orderMap.get(b.id) : 9999;
+      if (ai !== 9999 || bi !== 9999) return ai - bi;
+      return byPriority(a, b);
+    });
+  } else {
+    tasks.sort(byPriority);
+  }
+
   const withMe = tasks.filter((t) => t.status === "with-me" || t.status === "received");
   const waiting = tasks.filter((t) => t.status === "waiting" || t.status === "chased");
   const sections = [
@@ -599,13 +680,25 @@ function renderPriorityQueue() {
 }
 
 function renderPortfolioBoard() {
+  // Save open state of portfolio groups before re-rendering
+  const openPortfolioIds = new Set();
+  if (els.portfolioBoard) {
+    els.portfolioBoard.querySelectorAll(".portfolio-group[open]").forEach((el) => {
+      if (el.dataset.id) openPortfolioIds.add(el.dataset.id);
+    });
+  }
+
   const items = sortedPortfolios().map((portfolio) => {
     if (portfolio.editing) return editPortfolioMarkup(portfolio);
-    const workstreams = state.workstreams.filter((ws) => ws.portfolioId === portfolio.id);
+    const workstreams = state.workstreams.filter((ws) => ws.portfolioId === portfolio.id)
+      .filter((ws) => {
+        const allTasks = state.tasks.filter((t) => t.workstreamId === ws.id);
+        return allTasks.length === 0 || allTasks.some((t) => t.status !== "completed");
+      });
     const wsCount = workstreams.length;
     const taskCount = state.tasks.filter((t) => workstreams.some((ws) => ws.id === t.workstreamId) && t.status !== "completed").length;
     return `
-      <details class="group portfolio-group">
+      <details class="group portfolio-group" data-id="${portfolio.id}">
         <summary class="group-heading">
           <h2>${portfolioNameMarkup(portfolio)}</h2>
           <span class="pill">${wsCount} workstreams</span>
@@ -620,6 +713,13 @@ function renderPortfolioBoard() {
       </details>`;
   });
   renderHtmlOrEmpty(els.portfolioBoard, items);
+
+  // Restore open state
+  if (els.portfolioBoard && openPortfolioIds.size) {
+    els.portfolioBoard.querySelectorAll(".portfolio-group[data-id]").forEach((el) => {
+      if (openPortfolioIds.has(el.dataset.id)) el.open = true;
+    });
+  }
 }
 
 function workstreamGroupMarkup(workstream) {
@@ -664,16 +764,20 @@ function renderPeople() {
       const p = people.get(key);
       p.total  += 1;
       p.chases += Number(input.chaseCount || 0);
-      if (input.status !== "received" && input.status !== "not-needed") p.open += 1;
-      if (input.status !== "received" && input.status !== "not-needed" && daysUntil(task.dueDate) < 0) p.overdue += 1;
-      p.tasks.push(task.title);
+      const closed = input.status === "received" || input.status === "not-needed";
+      if (!closed) p.open += 1;
+      if (!closed && daysUntil(task.dueDate) < 0) p.overdue += 1;
+      p.tasks.push({ title: task.title, closed });
     });
   });
 
   const items = [...people.values()]
     .filter((p) => p.open > 0)
     .sort((a, b) => b.overdue - a.overdue || b.open - a.open || a.name.localeCompare(b.name))
-    .map((p) => `
+    .map((p) => {
+      const unique = [...new Map(p.tasks.map((t) => [t.title, t])).values()].slice(0, 3);
+      const taskHtml = unique.map((t) => t.closed ? `<s>${escapeHtml(t.title)}</s>` : escapeHtml(t.title)).join(", ");
+      return `
       <article class="person-card">
         <div class="card-title">
           <strong>${escapeHtml(p.name)}</strong>
@@ -684,8 +788,9 @@ function renderPeople() {
           <span class="pill">${p.chases} chases</span>
           <span class="pill">${p.total} tasks</span>
         </div>
-        <p class="meta">${escapeHtml([...new Set(p.tasks)].slice(0, 3).join(", "))}</p>
-      </article>`);
+        <p class="meta">${taskHtml}</p>
+      </article>`;
+    });
   renderHtmlOrEmpty(els.peopleList, items);
 }
 
@@ -737,14 +842,30 @@ function renderCalendar() {
       </div>`);
   }
 
-  // Detail list for the selected day (if any tasks).
+  // Detail list for the selected day, grouped by status.
   let detail = "";
   if (selectedCalendarDate) {
     const dayTasks = (byDate.get(selectedCalendarDate) || []).slice().sort(byUrgency);
+    const withMe    = dayTasks.filter((t) => t.status === "with-me" || t.status === "received");
+    const waiting   = dayTasks.filter((t) => t.status === "waiting" || t.status === "chased");
+    const completed = dayTasks.filter((t) => t.status === "completed");
+
+    const calGroupMarkup = (title, tasks, lane, open) => {
+      if (!tasks.length) return "";
+      return `
+        <details class="cal-detail-group" data-cal-lane="${lane}" ${open ? "open" : ""}>
+          <summary><strong>${title}</strong> <span class="pill">${tasks.length}</span></summary>
+          <div class="cal-detail-tasks">${tasks.map(taskMarkup).join("")}</div>
+        </details>`;
+    };
+
     detail = `
       <div class="calendar-detail">
         <h3>${formatDate(selectedCalendarDate)}</h3>
-        ${dayTasks.length ? dayTasks.map(taskMarkup).join("") : emptyMarkup("No tasks due this day.", "")}
+        ${calGroupMarkup("With me", withMe, "with-me", true)}
+        ${calGroupMarkup("Waiting", waiting, "waiting", false)}
+        ${calGroupMarkup("Completed", completed, "completed", false)}
+        ${!dayTasks.length ? emptyMarkup("No tasks due this day.", "") : ""}
       </div>`;
   }
 
@@ -764,7 +885,41 @@ function renderCalendar() {
 
 function renderCompleted() {
   if (!els.completedList) return;
-  renderCards(els.completedList, state.tasks.filter((t) => t.status === "completed").sort(byCompleted));
+
+  const month = parseInt(els.productivityMonth?.value ?? new Date().getMonth(), 10);
+  const year  = parseInt(els.productivityYear?.value ?? new Date().getFullYear(), 10);
+
+  const completed = state.tasks
+    .filter((t) => t.status === "completed")
+    .filter((t) => {
+      const d = completedDateSGT(t);
+      if (!d) return false;
+      return parseInt(d.slice(0, 4), 10) === year && parseInt(d.slice(5, 7), 10) - 1 === month;
+    })
+    .sort(byCompleted);
+
+  const groups = new Map();
+  completed.forEach((t) => {
+    const d = completedDateSGT(t);
+    if (!groups.has(d)) groups.set(d, []);
+    groups.get(d).push(t);
+  });
+
+  if (!completed.length) {
+    renderHtmlOrEmpty(els.completedList, []);
+    return;
+  }
+
+  els.completedList.innerHTML = `
+    <div class="completed-summary meta">${completed.length} task${completed.length === 1 ? "" : "s"} completed</div>
+    ${[...groups.entries()].map(([date, tasks]) => `
+      <details class="completed-date-group">
+        <summary>
+          <strong>${formatDate(date)}</strong>
+          <span class="pill">${tasks.length} task${tasks.length === 1 ? "" : "s"}</span>
+        </summary>
+        <div class="completed-date-tasks">${tasks.map((t) => completedTaskMarkup(t)).join("")}</div>
+      </details>`).join("")}`;
 }
 
 function renderCards(container, tasks) {
@@ -784,9 +939,15 @@ function renderPeopleSuggestions(filter = "") {
   if (!els.peopleSuggestions) return;
   const names = new Set();
   state.tasks.forEach((t) => t.inputs.forEach((i) => names.add(i.name)));
-  const lower = filter.toLowerCase();
-  const relevant = [...names].filter((n) => !filter || n.toLowerCase().includes(lower)).sort((a, b) => a.localeCompare(b));
-  els.peopleSuggestions.innerHTML = relevant.map((n) => `<option value="${escapeHtml(n)}"></option>`).join("");
+
+  const parts = filter.split(",");
+  const lastSegment = (parts.pop() || "").trim().toLowerCase();
+  const prefix = parts.length ? parts.join(",") + ", " : "";
+
+  const relevant = [...names]
+    .filter((n) => !lastSegment || n.toLowerCase().includes(lastSegment))
+    .sort((a, b) => a.localeCompare(b));
+  els.peopleSuggestions.innerHTML = relevant.map((n) => `<option value="${escapeHtml(prefix + n)}"></option>`).join("");
 }
 
 function renderHtmlOrEmpty(container, items) {
@@ -880,7 +1041,7 @@ function priorityItemMarkup(task, rank) {
   const workstream = findWorkstream(task.workstreamId);
   const portfolio  = workstream ? findPortfolio(workstream.portfolioId) : null;
   return `
-    <details class="priority-item risk-${riskLevel(task)}">
+    <details class="priority-item risk-${riskLevel(task)}" draggable="true" data-id="${task.id}">
       <summary>
         <span class="rank">${rank}</span>
         <span class="summary-main">
@@ -896,12 +1057,22 @@ function priorityItemMarkup(task, rank) {
         </div>
         <p class="meta">${portfolioPathMarkup(portfolio, workstream)} · task due ${formatDate(task.dueDate)} · workstream due ${formatDate(workstream?.deadline)}</p>
         <p class="meta">${escapeHtml(priorityReason(task))}</p>
+        <div class="actions">
+          <button data-action="edit-task" data-id="${task.id}">Edit</button>
+          <button data-action="waiting"   data-id="${task.id}">Waiting</button>
+          ${task.inputs.length ? `<button data-action="chase" data-id="${task.id}">Chased today</button>` : ""}
+          <button data-action="receive"  data-id="${task.id}">Inputs received</button>
+          <button data-action="complete" data-id="${task.id}">Completed</button>
+          <button data-action="delete-task" data-id="${task.id}" class="ghost">Delete</button>
+        </div>
       </div>
     </details>`;
 }
 
 function calendarTaskNameMarkup(task) {
-  return `<span class="calendar-task-name" draggable="true" data-task-id="${task.id}">${escapeHtml(task.title)}</span>`;
+  const colorClass = task.status === "completed" ? "cal-task-completed" :
+                     (task.status === "with-me" || task.status === "received") ? "cal-task-withme" : "cal-task-waiting";
+  return `<span class="calendar-task-name ${colorClass}" draggable="true" data-task-id="${task.id}">${escapeHtml(task.title)}</span>`;
 }
 
 function inputSummaryMarkup(input) {
@@ -1210,9 +1381,10 @@ function saveState() {
 }
 
 function migrateState() {
-  state.portfolios  = state.portfolios  || [];
-  state.workstreams = state.workstreams || [];
-  state.tasks       = state.tasks       || [];
+  state.portfolios    = state.portfolios    || [];
+  state.workstreams   = state.workstreams   || [];
+  state.tasks         = state.tasks         || [];
+  state.priorityOrder = state.priorityOrder || [];
   state.tasks.forEach((task) => {
     task.inputs = task.inputs || [];
     task.inputs.forEach((input) => {
