@@ -1440,6 +1440,9 @@ function migrateState() {
     if (!task.inputs.length && (task.status === "waiting" || task.status === "chased" || task.status === "received")) {
       task.status = "with-me";
     }
+    if (task.status === "completed" && task.dueDate && task.completedAt !== task.dueDate) {
+      task.completedAt = task.dueDate;
+    }
   });
 }
 
