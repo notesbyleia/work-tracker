@@ -525,6 +525,13 @@ function render() {
   // If the app's core DOM isn't present (e.g. the login screen is showing),
   // skip rendering entirely to avoid null-element crashes.
   if (!els.seedData || !els.portfolioForm || !els.metricChase) return;
+
+  // Save open state of task/priority cards before re-rendering
+  const openTaskIds = new Set();
+  document.querySelectorAll(".task-card[open][data-id], .priority-item[open][data-id]").forEach((el) => {
+    openTaskIds.add(el.dataset.id);
+  });
+
   renderPreviewMode();
   renderSelectors();
   renderMetrics();
@@ -536,6 +543,13 @@ function render() {
   renderPeople();
   renderCalendar();
   renderCompleted();
+
+  // Restore open state of task/priority cards
+  if (openTaskIds.size) {
+    document.querySelectorAll(".task-card[data-id], .priority-item[data-id]").forEach((el) => {
+      if (openTaskIds.has(el.dataset.id)) el.open = true;
+    });
+  }
   renderPeopleSuggestions();
 }
 
@@ -809,18 +823,33 @@ function renderCalendar() {
   const month = calendarMonth.getMonth();
   const monthLabel = calendarMonth.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
-  // Grid starts on Monday. Compute leading blanks.
+  // Grid starts on Sunday. Compute leading and trailing days.
   const firstOfMonth = new Date(year, month, 1);
-  const jsDay = firstOfMonth.getDay();              // 0=Sun..6=Sat
-  const leadingBlanks = (jsDay + 6) % 7;            // convert so Monday=0
+  const leadingBlanks = firstOfMonth.getDay();       // 0=Sun already correct
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const totalCells = leadingBlanks + daysInMonth;
+  const trailingBlanks = (7 - (totalCells % 7)) % 7;
   const todayStr = today();
 
-  const weekdayHeaders = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+  const weekdayHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
     .map((d) => `<div>${d}</div>`).join("");
 
   const cells = [];
-  for (let i = 0; i < leadingBlanks; i++) cells.push(`<div class="calendar-day muted-month"></div>`);
+
+  // Previous month trailing days
+  const prevMonthDays = new Date(year, month, 0).getDate();
+  for (let i = leadingBlanks - 1; i >= 0; i--) {
+    const day = prevMonthDays - i;
+    const prevMonth = month === 0 ? 11 : month - 1;
+    const prevYear = month === 0 ? year - 1 : year;
+    const dateStr = `${prevYear}-${String(prevMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dayTasks = (byDate.get(dateStr) || []).slice().sort(byUrgency);
+    cells.push(`
+      <div class="calendar-day muted-month${dayTasks.length ? " has-tasks" : ""}" data-cal-date="${dateStr}">
+        <span class="calendar-date">${day}</span>
+        <div class="calendar-tasks">${dayTasks.map(calendarTaskNameMarkup).join("")}</div>
+      </div>`);
+  }
 
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -839,6 +868,19 @@ function renderCalendar() {
         <div class="calendar-tasks">
           ${dayTasks.map(calendarTaskNameMarkup).join("")}
         </div>
+      </div>`);
+  }
+
+  // Next month leading days
+  for (let i = 1; i <= trailingBlanks; i++) {
+    const nextMonth = month === 11 ? 0 : month + 1;
+    const nextYear = month === 11 ? year + 1 : year;
+    const dateStr = `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
+    const dayTasks = (byDate.get(dateStr) || []).slice().sort(byUrgency);
+    cells.push(`
+      <div class="calendar-day muted-month${dayTasks.length ? " has-tasks" : ""}" data-cal-date="${dateStr}">
+        <span class="calendar-date">${i}</span>
+        <div class="calendar-tasks">${dayTasks.map(calendarTaskNameMarkup).join("")}</div>
       </div>`);
   }
 
