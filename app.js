@@ -915,7 +915,7 @@ function renderCompleted() {
     ${[...groups.entries()].map(([date, tasks]) => `
       <details class="completed-date-group">
         <summary>
-          <strong>${formatDate(date)}</strong>
+          <strong>${formatDateWithDay(date)}</strong>
           <span class="pill">${tasks.length} task${tasks.length === 1 ? "" : "s"}</span>
         </summary>
         <div class="completed-date-tasks">${tasks.map((t) => completedTaskMarkup(t)).join("")}</div>
@@ -989,9 +989,9 @@ function taskMarkup(task) {
         </div>
         <div class="actions">
           <button data-action="edit-task" data-id="${task.id}">Edit</button>
-          <button data-action="waiting"   data-id="${task.id}">Waiting</button>
+          ${task.inputs.length ? `<button data-action="waiting" data-id="${task.id}">Waiting</button>` : ""}
           ${task.inputs.length ? `<button data-action="chase" data-id="${task.id}">Chased today</button>` : ""}
-          <button data-action="receive"  data-id="${task.id}">Inputs received</button>
+          ${task.inputs.length ? `<button data-action="receive" data-id="${task.id}">Inputs received</button>` : ""}
           <button data-action="complete" data-id="${task.id}">Completed</button>
           <button data-action="delete-task" data-id="${task.id}" class="ghost">Delete</button>
         </div>
@@ -1059,9 +1059,9 @@ function priorityItemMarkup(task, rank) {
         <p class="meta">${escapeHtml(priorityReason(task))}</p>
         <div class="actions">
           <button data-action="edit-task" data-id="${task.id}">Edit</button>
-          <button data-action="waiting"   data-id="${task.id}">Waiting</button>
+          ${task.inputs.length ? `<button data-action="waiting" data-id="${task.id}">Waiting</button>` : ""}
           ${task.inputs.length ? `<button data-action="chase" data-id="${task.id}">Chased today</button>` : ""}
-          <button data-action="receive"  data-id="${task.id}">Inputs received</button>
+          ${task.inputs.length ? `<button data-action="receive" data-id="${task.id}">Inputs received</button>` : ""}
           <button data-action="complete" data-id="${task.id}">Completed</button>
           <button data-action="delete-task" data-id="${task.id}" class="ghost">Delete</button>
         </div>
@@ -1307,6 +1307,9 @@ function deleteTask(task) {
 }
 
 function updateTaskStatus(task, newStatus) {
+  if (!task.inputs.length && (newStatus === "waiting" || newStatus === "chased" || newStatus === "received")) {
+    newStatus = "with-me";
+  }
   if (newStatus !== "completed") delete task.completedAt;
   if (newStatus === "chased") {
     task.inputs.forEach((input) => {
@@ -1392,6 +1395,9 @@ function migrateState() {
       input.chaseCount = input.chaseCount || 0;
     });
     if (!task.status) task.status = "waiting";
+    if (!task.inputs.length && (task.status === "waiting" || task.status === "chased" || task.status === "received")) {
+      task.status = "with-me";
+    }
   });
 }
 
@@ -1643,6 +1649,10 @@ function offsetDate(days) {
 }
 function startOfMonth(date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+function formatDateWithDay(dateStr) {
+  if (!dateStr) return "—";
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
 function formatDate(dateStr) {
   if (!dateStr) return "—";
