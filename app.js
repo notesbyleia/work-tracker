@@ -544,9 +544,9 @@ function render() {
   renderCalendar();
   renderCompleted();
 
-  // Restore open state of task/priority cards
+  // Restore open state of task/priority cards (skip dashboard — cards stay collapsed there)
   if (openTaskIds.size) {
-    document.querySelectorAll(".task-card[data-id], .priority-item[data-id]").forEach((el) => {
+    document.querySelectorAll("#priority-view .task-card[data-id], #priority-view .priority-item[data-id], #portfolios-view .task-card[data-id], #tasks-view .task-card[data-id], #people-view .task-card[data-id]").forEach((el) => {
       if (openTaskIds.has(el.dataset.id)) el.open = true;
     });
   }
