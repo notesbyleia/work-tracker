@@ -59,10 +59,7 @@ const els = {
   peopleSuggestions:   document.querySelector("#people-suggestions"),
   tabs:                document.querySelectorAll(".tab"),
   views:               document.querySelectorAll(".view"),
-  // Dashboard lanes (index.html uses waiting-list / with-me-list)
-  waitingList:         document.querySelector("#waiting-list"),
-  withMeList:          document.querySelector("#with-me-list"),
-  // Other views
+  // Views
   priorityList:        document.querySelector("#priority-list"),
   completedList:       document.querySelector("#completed-list"),
   portfolioBoard:      document.querySelector("#portfolio-board"),
@@ -766,15 +763,7 @@ function renderProductivity() {
     </div>`).join("");
 }
 
-function renderDashboard() {
-  // Dashboard has "waiting" and "with-me" lanes per the HTML
-  if (els.waitingList) {
-    renderCards(els.waitingList, state.tasks.filter((t) => t.status === "waiting" || t.status === "chased").sort(byPriority));
-  }
-  if (els.withMeList) {
-    renderCards(els.withMeList, state.tasks.filter((t) => t.status === "with-me" || t.status === "received").sort(byPriority));
-  }
-}
+function renderDashboard() {}
 
 function renderPriorityQueue() {
   let tasks = openTasks();
