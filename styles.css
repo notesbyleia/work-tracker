@@ -1004,3 +1004,24 @@ details[open] summary::before {
   background: var(--green);
   color: #fff;
 }
+
+/* Drag handle for priority reorder */
+.drag-handle {
+  cursor: grab;
+  user-select: none;
+  font-size: 1.1rem;
+  color: var(--muted);
+  padding: 4px 6px;
+  line-height: 1;
+  touch-action: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.touch-drag-ghost {
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  background: var(--panel);
+}

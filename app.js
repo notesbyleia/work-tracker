@@ -390,11 +390,12 @@ document.addEventListener("dragstart", (event) => {
     calTask.classList.add("dragging");
     return;
   }
-  const priorityItem = event.target.closest(".priority-item[draggable='true']");
-  if (priorityItem) {
-    event.dataTransfer.setData("text/plain", priorityItem.dataset.id);
+  const dragHandle = event.target.closest(".drag-handle[draggable='true']");
+  if (dragHandle) {
+    const priorityItem = dragHandle.closest(".priority-item");
+    event.dataTransfer.setData("text/plain", dragHandle.dataset.dragId);
     event.dataTransfer.effectAllowed = "move";
-    priorityItem.classList.add("dragging");
+    if (priorityItem) priorityItem.classList.add("dragging");
     return;
   }
   const card = event.target.closest(".task-card");
@@ -415,7 +416,7 @@ document.addEventListener("dragend", (event) => {
 });
 
 document.addEventListener("dragover", (event) => {
-  const priorityItem = event.target.closest(".priority-item[draggable='true']");
+  const priorityItem = event.target.closest(".priority-item");
   if (priorityItem) {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
@@ -450,7 +451,7 @@ document.addEventListener("dragleave", (event) => {
 
 document.addEventListener("drop", (event) => {
   // Priority item reorder
-  const targetPriority = event.target.closest(".priority-item[draggable='true']");
+  const targetPriority = event.target.closest(".priority-item");
   if (targetPriority) {
     event.preventDefault();
     targetPriority.classList.remove("drag-over");
@@ -530,6 +531,75 @@ document.querySelectorAll(".lane[data-lane]").forEach((lane) => {
     updateTaskStatus(task, lane.dataset.lane);
     saveState(); render();
   });
+});
+
+// ─── Touch drag-and-drop (mobile) ────────────────────────────────────────────
+
+let touchDrag = null;
+
+document.addEventListener("touchstart", (event) => {
+  const handle = event.target.closest(".drag-handle[draggable='true']");
+  const calTask = event.target.closest(".calendar-task-name[draggable='true']");
+  const source = handle || calTask;
+  if (!source) return;
+  const id = handle ? handle.dataset.dragId : calTask.dataset.taskId;
+  const parent = handle ? handle.closest(".priority-item") : calTask;
+  const rect = parent.getBoundingClientRect();
+  touchDrag = { id, sourceEl: parent, startY: event.touches[0].clientY, ghost: null };
+  const ghost = parent.cloneNode(true);
+  ghost.className = "touch-drag-ghost";
+  ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;z-index:9999;pointer-events:none;`;
+  document.body.appendChild(ghost);
+  touchDrag.ghost = ghost;
+  parent.classList.add("dragging");
+}, { passive: true });
+
+document.addEventListener("touchmove", (event) => {
+  if (!touchDrag) return;
+  event.preventDefault();
+  const touch = event.touches[0];
+  const dy = touch.clientY - touchDrag.startY;
+  const rect = touchDrag.sourceEl.getBoundingClientRect();
+  touchDrag.ghost.style.top = (rect.top + dy) + "px";
+  document.querySelectorAll(".priority-item.drag-over, .calendar-day.drag-over").forEach((el) => el.classList.remove("drag-over"));
+  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (target) {
+    const pi = target.closest(".priority-item");
+    if (pi && pi !== touchDrag.sourceEl) pi.classList.add("drag-over");
+    const day = target.closest(".calendar-day[data-cal-date]");
+    if (day) day.classList.add("drag-over");
+  }
+}, { passive: false });
+
+document.addEventListener("touchend", (event) => {
+  if (!touchDrag) return;
+  const { id, sourceEl, ghost } = touchDrag;
+  ghost.remove();
+  sourceEl.classList.remove("dragging");
+  document.querySelectorAll(".priority-item.drag-over, .calendar-day.drag-over").forEach((el) => el.classList.remove("drag-over"));
+
+  const touch = event.changedTouches[0];
+  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (target) {
+    const targetPriority = target.closest(".priority-item");
+    if (targetPriority && targetPriority.dataset.id !== id) {
+      if (!state.priorityOrder || !state.priorityOrder.length) {
+        state.priorityOrder = openTasks().sort(byPriority).map((t) => t.id);
+      }
+      const order = state.priorityOrder.filter((tid) => tid !== id);
+      const targetIdx = order.indexOf(targetPriority.dataset.id);
+      if (targetIdx >= 0) order.splice(targetIdx, 0, id);
+      else order.push(id);
+      state.priorityOrder = order;
+      saveState(); render();
+    }
+    const dayCell = target.closest(".calendar-day[data-cal-date]");
+    if (dayCell) {
+      const task = state.tasks.find((t) => t.id === id);
+      if (task) { task.dueDate = dayCell.dataset.calDate; saveState(); render(); }
+    }
+  }
+  touchDrag = null;
 });
 
 // ─── Render ───────────────────────────────────────────────────────────────────
@@ -1117,11 +1187,13 @@ function completedNoInputsMarkup() {
 }
 
 function priorityItemMarkup(task, rank) {
+  if (task.editing) return editTaskMarkup(task);
   const workstream = findWorkstream(task.workstreamId);
   const portfolio  = workstream ? findPortfolio(workstream.portfolioId) : null;
   return `
-    <details class="priority-item risk-${riskLevel(task)}" draggable="true" data-id="${task.id}">
+    <details class="priority-item risk-${riskLevel(task)}" data-id="${task.id}">
       <summary>
+        <span class="drag-handle" draggable="true" data-drag-id="${task.id}" title="Drag to reorder">⠿</span>
         <span class="rank">${rank}</span>
         <span class="summary-main">
           <strong>${escapeHtml(task.title)}</strong>
