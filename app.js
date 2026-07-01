@@ -313,6 +313,19 @@ document.addEventListener("click", (event) => {
   render();
 });
 
+document.addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-action='input-received']");
+  if (!btn) return;
+  const task = state.tasks.find((t) => t.id === btn.dataset.taskId);
+  const input = task?.inputs.find((i) => i.id === btn.dataset.inputId);
+  if (!input) return;
+  input.status = "received";
+  const allReceived = task.inputs.every((i) => i.status === "received" || i.status === "not-needed");
+  if (allReceived) updateTaskStatus(task, "received");
+  saveState();
+  render();
+});
+
 document.addEventListener("submit", (event) => {
   if (event.target.matches(".edit-portfolio-form")) {
     event.preventDefault();
@@ -531,6 +544,16 @@ function render() {
   document.querySelectorAll(".task-card[open][data-id], .priority-item[open][data-id]").forEach((el) => {
     openTaskIds.add(el.dataset.id);
   });
+  // Save open state of calendar detail groups
+  const openCalLanes = new Set();
+  document.querySelectorAll(".cal-detail-group[open]").forEach((el) => {
+    openCalLanes.add(el.dataset.calLane);
+  });
+  // Track which tasks are being edited (they render as <article>, not <details>)
+  const editingTaskIds = new Set();
+  document.querySelectorAll(".edit-task-form[data-id]").forEach((el) => {
+    editingTaskIds.add(el.dataset.id);
+  });
 
   renderPreviewMode();
   renderSelectors();
@@ -545,9 +568,23 @@ function render() {
   renderCompleted();
 
   // Restore open state of task/priority cards (skip dashboard — cards stay collapsed there)
-  if (openTaskIds.size) {
-    document.querySelectorAll("#priority-view .task-card[data-id], #priority-view .priority-item[data-id], #portfolios-view .task-card[data-id], #tasks-view .task-card[data-id], #people-view .task-card[data-id]").forEach((el) => {
+  if (openTaskIds.size || editingTaskIds.size) {
+    document.querySelectorAll("#priority-view .task-card[data-id], #priority-view .priority-item[data-id], #portfolios-view .task-card[data-id], #tasks-view .task-card[data-id], #people-view .task-card[data-id], #calendar-view .task-card[data-id]").forEach((el) => {
       if (openTaskIds.has(el.dataset.id)) el.open = true;
+    });
+    // Ensure parent details stay open for editing tasks
+    editingTaskIds.forEach((id) => {
+      const el = document.querySelector(`.edit-task-form[data-id="${id}"]`);
+      if (el) {
+        let parent = el.closest("details");
+        while (parent) { parent.open = true; parent = parent.parentElement?.closest("details"); }
+      }
+    });
+  }
+  // Restore calendar detail group open state
+  if (openCalLanes.size) {
+    document.querySelectorAll(".cal-detail-group").forEach((el) => {
+      if (openCalLanes.has(el.dataset.calLane)) el.open = true;
     });
   }
   renderPeopleSuggestions();
@@ -662,10 +699,10 @@ function renderProductivity() {
 function renderDashboard() {
   // Dashboard has "waiting" and "with-me" lanes per the HTML
   if (els.waitingList) {
-    renderCards(els.waitingList, state.tasks.filter((t) => t.status === "waiting" || t.status === "chased").sort(byUrgency));
+    renderCards(els.waitingList, state.tasks.filter((t) => t.status === "waiting" || t.status === "chased").sort(byPriority));
   }
   if (els.withMeList) {
-    renderCards(els.withMeList, state.tasks.filter((t) => t.status === "with-me" || t.status === "received").sort(byUrgency));
+    renderCards(els.withMeList, state.tasks.filter((t) => t.status === "with-me" || t.status === "received").sort(byPriority));
   }
 }
 
@@ -738,7 +775,7 @@ function renderPortfolioBoard() {
 
 function workstreamGroupMarkup(workstream) {
   if (workstream.editing) return editWorkstreamMarkup(workstream);
-  const tasks     = openTasks().filter((t) => t.workstreamId === workstream.id).sort(byUrgency);
+  const tasks     = openTasks().filter((t) => t.workstreamId === workstream.id).sort(byPriority);
   const completed = state.tasks.filter((t) => t.workstreamId === workstream.id && t.status === "completed").length;
   const late      = tasks.filter((t) => t.status !== "completed" && daysUntil(t.dueDate) < 0).length;
   const level     = workstreamRisk(workstream, tasks);
@@ -766,7 +803,7 @@ function workstreamGroupMarkup(workstream) {
 }
 
 function renderTasks() {
-  renderHtmlOrEmpty(els.taskList, openTasks().sort(byUrgency).map(taskMarkup));
+  renderHtmlOrEmpty(els.taskList, openTasks().sort(byPriority).map(taskMarkup));
 }
 
 function renderPeople() {
@@ -843,7 +880,7 @@ function renderCalendar() {
     const prevMonth = month === 0 ? 11 : month - 1;
     const prevYear = month === 0 ? year - 1 : year;
     const dateStr = `${prevYear}-${String(prevMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const dayTasks = (byDate.get(dateStr) || []).slice().sort(byUrgency);
+    const dayTasks = (byDate.get(dateStr) || []).slice().sort(byPriority);
     cells.push(`
       <div class="calendar-day muted-month${dayTasks.length ? " has-tasks" : ""}" data-cal-date="${dateStr}">
         <span class="calendar-date">${day}</span>
@@ -853,7 +890,7 @@ function renderCalendar() {
 
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const dayTasks = (byDate.get(dateStr) || []).slice().sort(byUrgency);
+    const dayTasks = (byDate.get(dateStr) || []).slice().sort(byPriority);
     const isToday = dateStr === todayStr;
     const isSelected = dateStr === selectedCalendarDate;
 
@@ -876,7 +913,7 @@ function renderCalendar() {
     const nextMonth = month === 11 ? 0 : month + 1;
     const nextYear = month === 11 ? year + 1 : year;
     const dateStr = `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
-    const dayTasks = (byDate.get(dateStr) || []).slice().sort(byUrgency);
+    const dayTasks = (byDate.get(dateStr) || []).slice().sort(byPriority);
     cells.push(`
       <div class="calendar-day muted-month${dayTasks.length ? " has-tasks" : ""}" data-cal-date="${dateStr}">
         <span class="calendar-date">${i}</span>
@@ -887,7 +924,7 @@ function renderCalendar() {
   // Detail list for the selected day, grouped by status.
   let detail = "";
   if (selectedCalendarDate) {
-    const dayTasks = (byDate.get(selectedCalendarDate) || []).slice().sort(byUrgency);
+    const dayTasks = (byDate.get(selectedCalendarDate) || []).slice().sort(byPriority);
     const withMe    = dayTasks.filter((t) => t.status === "with-me" || t.status === "received");
     const waiting   = dayTasks.filter((t) => t.status === "waiting" || t.status === "chased");
     const completed = dayTasks.filter((t) => t.status === "completed");
@@ -1023,7 +1060,7 @@ function taskMarkup(task) {
       <div class="compact-body">
         <p class="meta">Likely return ${formatDate(expectedReturn(task))} · ${priorityLabel(task)} · ${totalChases(task)} chases</p>
         <div class="input-list">
-          ${task.inputs.length ? task.inputs.map(inputSummaryMarkup).join("") : noInputsMarkup()}
+          ${task.inputs.length ? task.inputs.map((inp) => inputSummaryMarkup(inp, task)).join("") : noInputsMarkup()}
         </div>
         <div class="pill-row">
           ${riskPill(level)}
@@ -1117,13 +1154,15 @@ function calendarTaskNameMarkup(task) {
   return `<span class="calendar-task-name ${colorClass}" draggable="true" data-task-id="${task.id}">${escapeHtml(task.title)}</span>`;
 }
 
-function inputSummaryMarkup(input) {
+function inputSummaryMarkup(input, task) {
   const lastChased = Number(input.chaseCount || 0) > 0 && input.lastChasedAt ? ` · last ${formatDate(input.lastChasedAt)}` : "";
+  const showReceived = task && (input.status === "waiting" || input.status === "chased");
   return `
     <div class="input-row">
       <strong>${escapeHtml(input.name)}</strong>
       <span class="pill ${statusClass(input.status)}">${labelInputStatus(input.status)}</span>
       <span class="meta">${Number(input.chaseCount || 0)} chases${lastChased}</span>
+      ${showReceived ? `<button class="input-received-btn ghost" data-action="input-received" data-task-id="${task.id}" data-input-id="${input.id}" title="Mark received">✓ Received</button>` : ""}
     </div>`;
 }
 
@@ -1296,7 +1335,17 @@ function collectInputs(form) {
   return inputs.concat(parseInputNames(form.elements.newInputs.value).map(makeInput));
 }
 
-function editEntity(entity) { entity.editing = true; saveState(); render(); }
+function editEntity(entity) {
+  entity.editing = true;
+  saveState();
+  render();
+  const el = document.querySelector(`[data-id="${entity.id}"]`);
+  if (el) {
+    if (el.tagName === "DETAILS") el.open = true;
+    const parent = el.closest("details");
+    if (parent) parent.open = true;
+  }
+}
 function cancelEdit(entity) { delete entity.editing; saveState(); render(); }
 
 function deletePortfolio(portfolio) {
@@ -1393,10 +1442,37 @@ function taskDeadlineIsValid(workstreamId, dueDate) {
   const ws = state.workstreams.find((w) => w.id === workstreamId);
   if (!ws) return true;
   if (dueDate > ws.deadline) {
-    alert(`Task deadline (${formatDate(dueDate)}) is after the workstream deadline (${formatDate(ws.deadline)}).`);
+    showDeadlinePrompt(ws, dueDate);
     return false;
   }
   return true;
+}
+
+function showDeadlinePrompt(workstream, taskDueDate) {
+  const existing = document.querySelector(".deadline-prompt");
+  if (existing) existing.remove();
+  const prompt = document.createElement("div");
+  prompt.className = "deadline-prompt";
+  prompt.innerHTML = `
+    <div class="deadline-prompt-inner">
+      <p><strong>Task deadline (${formatDate(taskDueDate)}) is after the workstream deadline (${formatDate(workstream.deadline)}).</strong></p>
+      <p>Update "${escapeHtml(workstream.name)}" deadline to match?</p>
+      <label>New workstream deadline <input type="date" value="${taskDueDate}" class="deadline-prompt-date" /></label>
+      <div class="actions">
+        <button type="button" class="deadline-prompt-save">Update workstream deadline</button>
+        <button type="button" class="deadline-prompt-cancel secondary">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(prompt);
+  prompt.querySelector(".deadline-prompt-save").addEventListener("click", () => {
+    workstream.deadline = prompt.querySelector(".deadline-prompt-date").value;
+    prompt.remove();
+    saveState();
+    render();
+  });
+  prompt.querySelector(".deadline-prompt-cancel").addEventListener("click", () => {
+    prompt.remove();
+  });
 }
 
 function setImportStatus(msg) {

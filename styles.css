@@ -962,3 +962,45 @@ details[open] summary::before {
   background: #eef7f2;
   border-color: #b9d8cb;
 }
+
+/* Deadline prompt overlay */
+.deadline-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.deadline-prompt-inner {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: var(--shadow);
+}
+
+.deadline-prompt-inner p { margin: 0 0 12px; }
+.deadline-prompt-inner label { display: block; margin-bottom: 16px; }
+.deadline-prompt-inner .actions { gap: 8px; }
+
+/* Quick received button on input rows */
+.input-received-btn {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border: 1px solid var(--green);
+  color: var(--green);
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.input-received-btn:hover {
+  background: var(--green);
+  color: #fff;
+}
