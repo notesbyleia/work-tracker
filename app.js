@@ -63,7 +63,6 @@ const els = {
   priorityList:        document.querySelector("#priority-list"),
   completedList:       document.querySelector("#completed-list"),
   portfolioBoard:      document.querySelector("#portfolio-board"),
-  taskList:            document.querySelector("#task-list"),
   peopleList:          document.querySelector("#people-list"),
   calendarViewer:      document.querySelector("#calendar-viewer"),
   previewDialog:       document.querySelector("#preview-dialog"),
@@ -629,14 +628,13 @@ function render() {
   renderPriorityQueue();
   renderDashboard();
   renderPortfolioBoard();
-  renderTasks();
   renderPeople();
   renderCalendar();
   renderCompleted();
 
   // Restore open state of task/priority cards (skip dashboard — cards stay collapsed there)
   if (openTaskIds.size || editingTaskIds.size) {
-    document.querySelectorAll("#priority-view .task-card[data-id], #priority-view .priority-item[data-id], #portfolios-view .task-card[data-id], #tasks-view .task-card[data-id], #people-view .task-card[data-id], #calendar-view .task-card[data-id]").forEach((el) => {
+    document.querySelectorAll("#priority-view .task-card[data-id], #priority-view .priority-item[data-id], #portfolios-view .task-card[data-id], #people-view .task-card[data-id], #calendar-view .task-card[data-id]").forEach((el) => {
       if (openTaskIds.has(el.dataset.id)) el.open = true;
     });
     // Ensure parent details stay open for editing tasks
@@ -859,10 +857,6 @@ function workstreamGroupMarkup(workstream) {
         : emptyMarkup("No tasks yet.", "Create a task under this workstream.")
       }</div>
     </article>`;
-}
-
-function renderTasks() {
-  renderHtmlOrEmpty(els.taskList, openTasks().sort(byPriority).map(taskMarkup));
 }
 
 function renderPeople() {
